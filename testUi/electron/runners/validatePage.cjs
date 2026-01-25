@@ -655,8 +655,15 @@ async function main() {
         console.error(`  🔍 DEBUG: URL before submit: ${url}, after submit: ${newUrl}`)
         currentUrl = newUrl
         
-        // Nếu URL không thay đổi, có thể có lỗi từ API
-        if (newUrl === url || newUrl.includes('login') || newUrl.includes('error')) {
+        // Kiểm tra xem có redirect thành công không
+        const urlChanged = newUrl !== url
+        const stillOnLoginPage = newUrl.includes('login') || newUrl.includes('auth/login')
+        const isSuccessRedirect = urlChanged && !stillOnLoginPage
+        
+        if (isSuccessRedirect) {
+          console.error('  ✅ URL changed - likely successful login/redirect')
+          console.error('  ℹ️ Will skip validation of login page elements (they no longer exist)')
+        } else if (newUrl === url || stillOnLoginPage) {
           console.error('  ⚠️ URL did not change or still on login page - checking for API errors...')
         }
       } catch (e) {
@@ -703,7 +710,24 @@ async function main() {
                   // Kiểm tra xem có phải là error message không (không phải placeholder)
                   const isVisible = window.getComputedStyle(el).display !== 'none' && 
                                    window.getComputedStyle(el).visibility !== 'hidden'
-                  if (isVisible && !text.includes('{') && !text.includes('}')) {
+                  
+                  // Chỉ lấy các error message thực sự, không lấy text như "Đăng xuất", "Không có cữ liệu"
+                  // Kiểm tra xem có phải là error message không
+                  const isErrorText = text.toLowerCase().includes('error') || 
+                                     text.toLowerCase().includes('lỗi') ||
+                                     text.toLowerCase().includes('sai') ||
+                                     text.toLowerCase().includes('thất bại') ||
+                                     text.toLowerCase().includes('không hợp lệ') ||
+                                     text.toLowerCase().includes('invalid') ||
+                                     text.toLowerCase().includes('failed') ||
+                                     text.toLowerCase().includes('incorrect') ||
+                                     (el.className && (
+                                       el.className.toLowerCase().includes('error') ||
+                                       el.className.toLowerCase().includes('danger') ||
+                                       el.className.toLowerCase().includes('alert-danger')
+                                     ))
+                  
+                  if (isVisible && !text.includes('{') && !text.includes('}') && isErrorText) {
                     errors.push({
                       text: text,
                       selector: selector,
@@ -755,6 +779,20 @@ async function main() {
 
   console.error('Starting validation...')
   const errors = []
+  
+  // Kiểm tra xem có redirect thành công không (URL đã thay đổi và không còn trên trang login)
+  const finalUrl = page.url()
+  const urlChanged = finalUrl !== url
+  const stillOnLoginPage = finalUrl.includes('login') || finalUrl.includes('auth/login')
+  const isSuccessRedirect = urlChanged && !stillOnLoginPage
+  
+  if (isSuccessRedirect) {
+    console.error('  ✅ Detected successful redirect - login was successful!')
+    console.error('  ℹ️ Skipping validation of login page elements (page has changed)')
+    console.error(`  ℹ️ Current URL: ${finalUrl}`)
+    // Không validate các element của trang login nữa vì chúng không còn tồn tại
+    // Chỉ validate nếu user muốn validate element trên trang mới
+  }
 
   for (const key of Object.keys(expected)) {
     const expectedValue = String(expected[key]).trim()
@@ -789,6 +827,14 @@ async function main() {
       }
       
       if (!el) {
+        // Nếu đã redirect thành công và element không tìm thấy, có thể là element của trang cũ
+        // Không báo lỗi nếu đã redirect thành công
+        if (isSuccessRedirect) {
+          console.error(`  ℹ️ Element #${key} not found (likely because page redirected after successful login)`)
+          // Không thêm vào errors vì đây là hành vi bình thường khi đăng nhập thành công
+          continue
+        }
+        
         errors.push({ key, type: 'missing', expected: expectedValue })
 
         // Hiển thị thông báo trên console của browser

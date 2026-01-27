@@ -1055,7 +1055,9 @@ async function main() {
   }
   
   // Hiển thị kết quả validate trên trang web
-  await page.evaluate(({ errors, pass, apiErrors }) => {
+  // Lưu ý: Sau khi redirect, page context có thể đã thay đổi, nên cần try-catch
+  try {
+    await page.evaluate(({ errors, pass, apiErrors }) => {
     // Tạo overlay để hiển thị kết quả
     const overlay = document.createElement('div')
     overlay.id = 'i18n-validate-overlay'
@@ -1157,6 +1159,13 @@ async function main() {
       }
     }
   }, { errors, pass: errors.length === 0, apiErrors: apiErrors })
+  } catch (evaluateError) {
+    // Nếu page đã bị đóng hoặc context đã thay đổi sau redirect, bỏ qua việc hiển thị overlay
+    // Đây không phải lỗi nghiêm trọng - validation đã hoàn thành thành công
+    console.error('⚠️ Cannot display overlay (page may have redirected or closed):', evaluateError.message)
+    console.error('ℹ️ Validation completed successfully, but overlay cannot be displayed on the new page')
+    // Không throw error, vì validation đã hoàn thành thành công
+  }
   
   const result = { pass: errors.length === 0, errors }
   const jsonOutput = JSON.stringify(result)

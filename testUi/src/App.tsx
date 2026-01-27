@@ -95,12 +95,6 @@ export default function App() {
           alert('Không tìm thấy phần tử nào có id trên trang này. Vui lòng kiểm tra lại URL.')
         } else {
           console.log('Items set successfully:', data.length, 'items')
-          // Tự động mở browser để xem trang web
-          try {
-            await window.api.openBrowser(url.trim())
-          } catch (e) {
-            console.warn('Failed to open browser:', e)
-          }
         }
       } else {
         console.error('Invalid data format:', data)

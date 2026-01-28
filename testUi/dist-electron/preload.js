@@ -21,6 +21,6 @@ electron_1.contextBridge.exposeInMainWorld('ipcRenderer', {
 });
 electron_1.contextBridge.exposeInMainWorld('api', {
     scanPage: (url) => electron_1.ipcRenderer.invoke('scan-page', url),
-    validatePage: (url, jsonObj) => electron_1.ipcRenderer.invoke('validate-page', url, jsonObj),
+    validatePage: (url, jsonObj, browserOpened) => electron_1.ipcRenderer.invoke('validate-page', url, jsonObj, browserOpened),
     openBrowser: (url) => electron_1.ipcRenderer.invoke('open-browser', url),
 });

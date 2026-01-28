@@ -21,6 +21,7 @@ export default function App() {
   const [jsonText, setJsonText] = useState('')
   const [jsonError, setJsonError] = useState<string | null>(null)
   const [validateResult, setValidateResult] = useState<ValidateResult>(null)
+  const [browserOpened, setBrowserOpened] = useState(false)
 
   const selectedJson = useMemo(() => {
     const obj: Record<string, string> = {}
@@ -123,31 +124,7 @@ export default function App() {
         <button onClick={onLoad} disabled={loading}>
           {loading ? 'Loading...' : 'Load'}
         </button>
-        <button
-          onClick={async () => {
-            if (!url.trim()) {
-              alert('Vui lòng nhập URL trước')
-              return
-            }
-            try {
-              await window.api.openBrowser(url.trim())
-            } catch (e: any) {
-              alert('Lỗi khi mở browser: ' + (e?.message || String(e)))
-            }
-          }}
-          disabled={!url.trim()}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: !url.trim() ? '#ccc' : '#17a2b8',
-            color: 'white',
-            border: 'none',
-            borderRadius: 4,
-            cursor: !url.trim() ? 'not-allowed' : 'pointer'
-          }}
-          title="Mở URL trong browser mặc định"
-        >
-          🌐 Mở Browser
-        </button>
+         {/* Validate & Test */}
         <button
           onClick={async () => {
             if (!url.trim()) {
@@ -177,41 +154,26 @@ export default function App() {
             try {
               setLoading(true)
               setValidateResult(null)
-              const result = await window.api.validatePage(url.trim(), jsonToValidate)
+              const result = await window.api.validatePage(url.trim(), jsonToValidate, browserOpened)
               setValidateResult(result)
-              // Browser sẽ tự động mở và hiển thị kết quả validate trực tiếp trên trang web
+              // Đánh dấu browser đã mở sau lần đầu tiên
+              if (!browserOpened) {
+                setBrowserOpened(true)
+              }
+              // BrowserWindow sẽ tự động mở (lần đầu) hoặc reuse (các lần sau)
+              // Kết quả validate sẽ hiển thị trực tiếp trên trang web trong BrowserWindow
               if (result.pass) {
                 // Có thể hiển thị thông báo thành công ngắn gọn
-                console.log('✅ PASS - Tất cả các phần tử đều đúng!')
+                console.log('PASS - Tất cả các phần tử đều đúng!')
               } else {
-                console.log('❌ FAIL - Có', result.errors.length, 'lỗi. Xem chi tiết trong browser và panel bên dưới.')
+                console.log(' FAIL - Có', result.errors.length, 'lỗi. Xem chi tiết trong browser và panel bên dưới.')
               }
             } catch (e: any) {
               const errorMessage = e?.message || String(e)
               setValidateResult({ pass: false, errors: [{ key: 'system', type: 'error', message: errorMessage }] })
               
-              // Kiểm tra nếu lỗi liên quan đến playwright browser
-              if (errorMessage.includes('Playwright browser') || errorMessage.includes('Executable doesn\'t exist') || errorMessage.includes('Browser not found')) {
-                alert(
-                  '❌ Playwright browser chưa được cài đặt!\n\n' +
-                  'Vui lòng chạy lệnh sau trong terminal:\n' +
-                  'npm run install:playwright\n\n' +
-                  'Hoặc:\n' +
-                  'npx playwright install chromium'
-                )
-              } else if (errorMessage.includes('Process bị kill') || errorMessage.includes('crash')) {
-                alert(
-                  '❌ Process bị kill hoặc crash!\n\n' +
-                  'Có thể do:\n' +
-                  '1. Playwright browser chưa được cài đặt\n' +
-                  '   → Chạy: npm run install:playwright\n' +
-                  '2. Thiếu bộ nhớ\n' +
-                  '3. Bị antivirus chặn\n\n' +
-                  'Chi tiết: ' + errorMessage
-                )
-              } else {
-                alert('Lỗi khi test: ' + errorMessage)
-              }
+              // Hiển thị lỗi chung
+              alert('Lỗi khi test: ' + errorMessage)
             } finally {
               setLoading(false)
             }
@@ -225,9 +187,9 @@ export default function App() {
             borderRadius: 4,
             cursor: loading || !url.trim() || !jsonText.trim() ? 'not-allowed' : 'pointer'
           }}
-          title="Chạy validate và mở browser để xem kết quả trực tiếp trên trang web"
+          title="Chạy validate - BrowserWindow sẽ tự động mở/reuse để hiển thị kết quả"
         >
-          {loading ? 'Testing...' : '🔍 Validate & Test'}
+          {loading ? 'Testing...' : ' Validate & Test'}
         </button>
         <button
           onClick={() => {
@@ -245,8 +207,23 @@ export default function App() {
           }}
           title="Xóa kết quả test để chuẩn bị cho test case mới"
         >
-          🗑️ Clear Results
+           Clear Results
         </button>
+        {browserOpened && (
+          <div style={{
+            padding: '6px 12px',
+            backgroundColor: '#d1ecf1',
+            color: '#0c5460',
+            borderRadius: 4,
+            fontSize: '0.85em',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6
+          }}>
+            <span>✓</span>
+            <span>BrowserWindow đã mở - các test tiếp theo sẽ chạy trên cùng window</span>
+          </div>
+        )}
 
       </div>
 
@@ -313,7 +290,7 @@ export default function App() {
                         backgroundColor: '#fff',
                         borderRadius: 3
                       }}>
-                        ❌ {error.type === 'missing' ? 'Missing' : error.type === 'mismatch' ? 'Mismatch' : 'Error'}
+                         {error.type === 'missing' ? 'Missing' : error.type === 'mismatch' ? 'Mismatch' : 'Error'}
                       </span>
                     )}
                   </div>
@@ -411,7 +388,7 @@ export default function App() {
           />
 
           <div style={{ marginTop: 8, fontSize: '0.85em', color: '#666' }}>
-            💡 Tip: Sửa JSON và nhấn "Áp dụng thay đổi" để cập nhật các checkbox bên trái
+             Tip: Sửa JSON và nhấn "Áp dụng thay đổi" để cập nhật các checkbox bên trái
           </div>
 
           {/* Validate Result Panel */}
@@ -433,7 +410,7 @@ export default function App() {
                 alignItems: 'center',
                 gap: 8
               }}>
-                {validateResult.pass ? '✅ Validation PASSED' : `❌ Validation FAILED (${validateResult.errors.length} errors)`}
+                {validateResult.pass ? ' Validation PASSED' : ` Validation FAILED (${validateResult.errors.length} errors)`}
               </div>
               
               {!validateResult.pass && validateResult.errors.length > 0 && (
@@ -474,15 +451,15 @@ export default function App() {
               )}
               
               <div style={{ marginTop: 8, fontSize: '0.85em', color: '#666', fontStyle: 'italic' }}>
-                💡 Browser đã mở để bạn xem kết quả validate trực tiếp trên trang web. Các phần tử có lỗi sẽ được highlight bằng màu đỏ.
+                 BrowserWindow đã mở để bạn xem kết quả validate trực tiếp trên trang web. Các phần tử có lỗi sẽ được highlight bằng màu đỏ.
               </div>
               
               <div style={{ marginTop: 12, padding: 8, backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: 4, fontSize: '0.85em' }}>
-                <strong>📝 Để test case mới:</strong>
+                <strong> Để test case mới:</strong>
                 <ol style={{ margin: '4px 0 0 0', paddingLeft: 20 }}>
                   <li>Sửa JSON trong textarea phía trên (hoặc giữ nguyên nếu muốn test lại)</li>
-                  <li>Nhấn "🔍 Validate & Test" để chạy test mới</li>
-                  <li>Hoặc nhấn "🗑️ Clear Results" để xóa kết quả này</li>
+                  <li>Nhấn " Validate & Test" để chạy test mới</li>
+                  <li>Hoặc nhấn " Clear Results" để xóa kết quả này</li>
                 </ol>
               </div>
             </div>

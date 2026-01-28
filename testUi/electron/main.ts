@@ -22,7 +22,8 @@ if (!gotTheLock) {
 }
 
 let win: BrowserWindow | null = null
-let currentValidateProcess: any = null // Lưu reference đến validate process hiện tại
+let testWindow: BrowserWindow | null = null // BrowserWindow để test - giữ mở suốt
+let currentValidateProcess: any = null // Lưu reference đến validate process hiện tại (deprecated - sẽ xóa)
  
 
 // Hàm kiểm tra xem server đã sẵn sàng chưa
@@ -122,11 +123,13 @@ ipcMain.handle('scan-page', async (_event, url: string) => {
     throw error
   }
 })
-ipcMain.handle('validate-page', async (_event, url: string, jsonObj: any) => {
+ipcMain.handle('validate-page', async (_event, url: string, jsonObj: any, browserOpened?: boolean) => {
   console.log('📥 IPC handler validate-page called with URL:', url)
   console.log('JSON object:', JSON.stringify(jsonObj).substring(0, 200))
+  console.log('Browser already opened:', browserOpened)
   try {
-    const result = await runValidate(url, jsonObj)
+    // Dùng cách mới: BrowserWindow + executeJavaScript thay vì Playwright spawn
+    const result = await runValidateInBrowserWindow(url, jsonObj, browserOpened)
     console.log('✅ IPC handler validate-page returning result:', result)
     return result
   } catch (error) {
@@ -136,9 +139,441 @@ ipcMain.handle('validate-page', async (_event, url: string, jsonObj: any) => {
 })
 
 
+// Hàm mới: Validate bằng BrowserWindow + executeJavaScript (không dùng Playwright spawn)
+async function runValidateInBrowserWindow(
+  url: string,
+  jsonObj: Record<string, string>,
+  browserOpened?: boolean
+): Promise<{ pass: boolean; errors: any[] }> {
+  // Tạo hoặc reuse BrowserWindow
+  if (!testWindow || testWindow.isDestroyed()) {
+    console.log('🆕 Creating new test BrowserWindow...')
+    testWindow = new BrowserWindow({
+      width: 1400,
+      height: 900,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        webSecurity: true,
+      },
+      show: true,
+    })
+    
+    testWindow.on('closed', () => {
+      testWindow = null
+      console.log('🔒 Test window closed')
+    })
+    
+    console.log('✅ Test BrowserWindow created')
+  } else {
+    console.log('♻️ Reusing existing test BrowserWindow')
+    testWindow.focus()
+  }
+  
+  // Load URL vào window (chỉ load nếu URL khác với URL hiện tại)
+  const currentURL = testWindow.webContents.getURL()
+  if (currentURL !== url && !currentURL.includes(url.split('?')[0])) {
+    console.log(`📂 Loading URL: ${url}`)
+    await testWindow.loadURL(url)
+    // Đợi page load xong
+    await new Promise(resolve => setTimeout(resolve, 2000))
+  } else {
+    console.log(`♻️ URL already loaded: ${currentURL}`)
+    // Đợi một chút để đảm bảo page sẵn sàng
+    await new Promise(resolve => setTimeout(resolve, 500))
+  }
+  
+  // Inject và chạy validation script
+  const validationScript = generateValidationScript(jsonObj)
+  
+  try {
+    const result = await testWindow.webContents.executeJavaScript(validationScript)
+    return result
+  } catch (error) {
+    console.error('❌ Error executing validation script:', error)
+    throw error
+  }
+}
+
+// Tạo validation script để chạy trong browser context
+function generateValidationScript(jsonObj: Record<string, string>): string {
+  const jsonStr = JSON.stringify(jsonObj)
+  
+  return `
+    (async function() {
+      const expected = ${jsonStr};
+      const errors = [];
+      
+      // Clear form inputs
+      const inputs = document.querySelectorAll('input, textarea, select');
+      inputs.forEach((el) => {
+        if (el instanceof HTMLInputElement) {
+          if (el.type === 'checkbox' || el.type === 'radio') {
+            el.checked = false;
+          } else {
+            el.value = '';
+          }
+        } else if (el instanceof HTMLTextAreaElement) {
+          el.value = '';
+        } else if (el instanceof HTMLSelectElement) {
+          el.selectedIndex = 0;
+        }
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Fill form với dữ liệu từ JSON
+      for (const key of Object.keys(expected)) {
+        const value = String(expected[key] || '');
+        const selector = '#' + key.replace(/[!"#$%&'()*+,.\\/:;<=>?@[\\\\\\]^\\\`{|}~]/g, '\\\\$&');
+        let element = document.querySelector(selector);
+        
+        if (!element) {
+          // Thử các selector khác
+          const altSelectors = [
+            \`input[name="\${key}"]\`,
+            \`input[id="\${key}"]\`,
+            \`[id="\${key}"]\`,
+          ];
+          for (const altSel of altSelectors) {
+            element = document.querySelector(altSel);
+            if (element) break;
+          }
+        }
+        
+        if (!element) continue;
+        
+        // Kiểm tra xem có phải wrapper không
+        if (!(element instanceof HTMLInputElement) && 
+            !(element instanceof HTMLTextAreaElement) && 
+            !(element instanceof HTMLSelectElement)) {
+          const innerInput = element.querySelector('input, textarea, select');
+          if (innerInput) element = innerInput;
+        }
+        
+        // Fill giá trị
+        if (element instanceof HTMLInputElement) {
+          if (element.type === 'checkbox') {
+            const shouldCheck = value.toLowerCase() === 'true' || value === '1' || value.toLowerCase() === 'on';
+            element.checked = shouldCheck;
+          } else {
+            element.value = value;
+            element.dispatchEvent(new Event('input', { bubbles: true }));
+            element.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        } else if (element instanceof HTMLTextAreaElement) {
+          element.value = value;
+          element.dispatchEvent(new Event('input', { bubbles: true }));
+          element.dispatchEvent(new Event('change', { bubbles: true }));
+        } else if (element instanceof HTMLSelectElement) {
+          // Tìm option với text matching value
+          for (let i = 0; i < element.options.length; i++) {
+            if (element.options[i].text.trim() === value) {
+              element.selectedIndex = i;
+              break;
+            }
+          }
+          element.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Validate các giá trị TRƯỚC KHI submit (để đảm bảo form đã được fill đúng)
+      const urlBeforeSubmit = window.location.href;
+      for (const key of Object.keys(expected)) {
+        const expectedValue = String(expected[key] || '').trim();
+        const selector = '#' + key.replace(/[!"#$%&'()*+,.\\/:;<=>?@[\\\\\\]^\\\`{|}~]/g, '\\\\$&');
+        let element = document.querySelector(selector);
+        
+        if (!element) {
+          // Thử các selector khác
+          const altSelectors = [
+            \`input[name="\${key}"]\`,
+            \`input[id="\${key}"]\`,
+            \`[id="\${key}"]\`,
+          ];
+          for (const altSel of altSelectors) {
+            element = document.querySelector(altSel);
+            if (element) break;
+          }
+        }
+        
+        if (!element) {
+          errors.push({ key, type: 'missing', message: 'Element not found before submit' });
+          continue;
+        }
+        
+        // Kiểm tra wrapper
+        if (!(element instanceof HTMLInputElement) && 
+            !(element instanceof HTMLTextAreaElement) && 
+            !(element instanceof HTMLSelectElement)) {
+          const innerInput = element.querySelector('input, textarea, select');
+          if (innerInput) element = innerInput;
+        }
+        
+        let actualValue = '';
+        
+        if (element instanceof HTMLInputElement) {
+          if (element.type === 'checkbox') {
+            const isChecked = element.checked;
+            const expectedIsTruthy = expectedValue.toLowerCase() === 'true' || 
+                                    expectedValue === '1' || 
+                                    expectedValue.toLowerCase() === 'on';
+            actualValue = isChecked ? 'true' : 'false';
+            
+            if (isChecked !== expectedIsTruthy) {
+              errors.push({
+                key,
+                type: 'mismatch',
+                expected: expectedValue,
+                actual: actualValue
+              });
+              
+              // Highlight
+              const el = document.getElementById(key);
+              if (el) {
+                el.style.outline = '3px solid red';
+                el.style.background = 'rgba(255,0,0,0.15)';
+                el.style.border = '2px solid red';
+                el.setAttribute('title', \`⚠️ i18n mismatch\\nExpected: "\${expectedValue}"\\nActual: "\${actualValue}"\`);
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }
+            continue;
+          } else if (element.type === 'password' && !element.value && expectedValue) {
+            // Password có thể bị clear sau submit, skip
+            continue;
+          } else {
+            actualValue = (element.value || '').trim();
+          }
+        } else if (element instanceof HTMLTextAreaElement) {
+          actualValue = (element.value || '').trim();
+        } else if (element instanceof HTMLSelectElement) {
+          actualValue = (element.options[element.selectedIndex]?.text || '').trim();
+        } else {
+          actualValue = (element.innerText || element.textContent || '').trim();
+        }
+        
+        if (actualValue !== expectedValue) {
+          errors.push({
+            key,
+            type: 'mismatch',
+            expected: expectedValue,
+            actual: actualValue
+          });
+          
+          // Highlight
+          const el = document.getElementById(key);
+          if (el) {
+            el.style.outline = '3px solid red';
+            el.style.background = 'rgba(255,0,0,0.15)';
+            el.style.border = '2px solid red';
+            el.setAttribute('title', \`⚠️ i18n mismatch\\nExpected: "\${expectedValue}"\\nActual: "\${actualValue}"\`);
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      }
+      
+      // Submit form nếu có submit button
+      const submitButton = document.querySelector('button[type="submit"], input[type="submit"], button:not([type])');
+      if (submitButton) {
+        submitButton.click();
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Kiểm tra xem có redirect không (redirect = success)
+        const urlAfterSubmit = window.location.href;
+        const urlChanged = urlAfterSubmit !== urlBeforeSubmit;
+        const stillOnLoginPage = urlAfterSubmit.includes('login') || urlAfterSubmit.includes('auth/login');
+        const isSuccessRedirect = urlChanged && !stillOnLoginPage;
+        
+        if (isSuccessRedirect) {
+          // Redirect thành công - loại bỏ các lỗi "missing" vì element không còn tồn tại là bình thường
+          // Chỉ giữ lại các lỗi "mismatch" (nếu có) từ validation trước khi submit
+          // Filter errors array bằng cách tạo array mới
+          const filteredErrors = [];
+          for (let i = 0; i < errors.length; i++) {
+            const err = errors[i];
+            // Giữ lại lỗi nếu không phải "missing" hoặc nếu là "missing" nhưng không phải do redirect
+            if (err.type !== 'missing' || err.message !== 'Element not found before submit') {
+              filteredErrors.push(err);
+            }
+          }
+          // Clear và refill errors array
+          errors.length = 0;
+          errors.push(...filteredErrors);
+          console.log('✅ Redirect successful - login page elements no longer exist (this is expected)');
+          console.log('✅ Removed "missing" errors for elements that no longer exist after redirect');
+        } else {
+          // Vẫn ở trang login - validate lại để đảm bảo giá trị vẫn đúng
+          // (có thể form không submit được hoặc có lỗi)
+          for (const key of Object.keys(expected)) {
+            const expectedValue = String(expected[key] || '').trim();
+            const selector = '#' + key.replace(/[!"#$%&'()*+,.\\/:;<=>?@[\\\\\\]^\\\`{|}~]/g, '\\\\$&');
+            let element = document.querySelector(selector);
+            
+            if (!element) {
+              const altSelectors = [
+                \`input[name="\${key}"]\`,
+                \`input[id="\${key}"]\`,
+                \`[id="\${key}"]\`,
+              ];
+              for (const altSel of altSelectors) {
+                element = document.querySelector(altSel);
+                if (element) break;
+              }
+            }
+            
+            if (!element) continue; // Element không tồn tại sau submit - có thể đã redirect
+            
+            // Kiểm tra wrapper
+            if (!(element instanceof HTMLInputElement) && 
+                !(element instanceof HTMLTextAreaElement) && 
+                !(element instanceof HTMLSelectElement)) {
+              const innerInput = element.querySelector('input, textarea, select');
+              if (innerInput) element = innerInput;
+            }
+            
+            let actualValue = '';
+            
+            if (element instanceof HTMLInputElement) {
+              if (element.type === 'checkbox') {
+                const isChecked = element.checked;
+                const expectedIsTruthy = expectedValue.toLowerCase() === 'true' || 
+                                        expectedValue === '1' || 
+                                        expectedValue.toLowerCase() === 'on';
+                actualValue = isChecked ? 'true' : 'false';
+                
+                if (isChecked !== expectedIsTruthy) {
+                  // Chỉ thêm lỗi nếu chưa có trong errors
+                  const existingError = errors.find(e => e.key === key);
+                  if (!existingError) {
+                    errors.push({
+                      key,
+                      type: 'mismatch',
+                      expected: expectedValue,
+                      actual: actualValue
+                    });
+                  }
+                }
+                continue;
+              } else if (element.type === 'password' && !element.value && expectedValue) {
+                // Password có thể bị clear sau submit, skip
+                continue;
+              } else {
+                actualValue = (element.value || '').trim();
+              }
+            } else if (element instanceof HTMLTextAreaElement) {
+              actualValue = (element.value || '').trim();
+            } else if (element instanceof HTMLSelectElement) {
+              actualValue = (element.options[element.selectedIndex]?.text || '').trim();
+            } else {
+              actualValue = (element.innerText || element.textContent || '').trim();
+            }
+            
+            if (actualValue !== expectedValue) {
+              // Chỉ thêm lỗi nếu chưa có trong errors
+              const existingError = errors.find(e => e.key === key);
+              if (!existingError) {
+                errors.push({
+                  key,
+                  type: 'mismatch',
+                  expected: expectedValue,
+                  actual: actualValue
+                });
+              }
+            }
+          }
+        }
+      } else {
+        // Không có submit button - chỉ validate giá trị đã fill
+        // (đã validate ở trên)
+      }
+      
+      // Hiển thị overlay kết quả
+      const existingOverlay = document.getElementById('i18n-validate-overlay');
+      if (existingOverlay) existingOverlay.remove();
+      
+      const overlay = document.createElement('div');
+      overlay.id = 'i18n-validate-overlay';
+      overlay.style.cssText = \`
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: \${errors.length === 0 ? '#28a745' : '#dc3545'};
+        color: white;
+        padding: 16px 24px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        z-index: 999999;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        max-width: 400px;
+        max-height: 80vh;
+        overflow-y: auto;
+      \`;
+      
+      const title = document.createElement('div');
+      title.style.cssText = 'font-weight: bold; font-size: 16px; margin-bottom: 12px;';
+      title.textContent = errors.length === 0 ? '✅ Validation PASSED' : \`❌ Validation FAILED (\${errors.length} errors)\`;
+      overlay.appendChild(title);
+      
+      if (errors.length > 0) {
+        const errorList = document.createElement('div');
+        errorList.style.cssText = 'font-size: 12px; line-height: 1.6;';
+        errors.forEach((err, idx) => {
+          const errDiv = document.createElement('div');
+          errDiv.style.cssText = 'margin-bottom: 8px; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px;';
+          errDiv.innerHTML = \`
+            <strong>\${idx + 1}. \${err.key}</strong><br>
+            <span style="font-size: 11px;">
+              \${err.type === 'missing' ? '⚠️ Element not found' : err.type === 'mismatch' ? '⚠️ Value mismatch' : '⚠️ Error'}<br>
+              \${err.expected ? \`Expected: "\${err.expected}"\` : ''}<br>
+              \${err.actual ? \`Actual: "\${err.actual}"\` : ''}
+            </span>
+          \`;
+          errorList.appendChild(errDiv);
+        });
+        overlay.appendChild(errorList);
+      }
+      
+      const closeBtn = document.createElement('button');
+      closeBtn.textContent = 'Close';
+      closeBtn.style.cssText = \`
+        margin-top: 12px;
+        padding: 8px 16px;
+        background: rgba(255,255,255,0.2);
+        border: 1px solid rgba(255,255,255,0.3);
+        color: white;
+        border-radius: 4px;
+        cursor: pointer;
+        width: 100%;
+      \`;
+      closeBtn.onclick = () => overlay.remove();
+      overlay.appendChild(closeBtn);
+      
+      document.body.appendChild(overlay);
+      
+      // Scroll đến phần tử đầu tiên có lỗi
+      if (errors.length > 0 && errors[0].key) {
+        const firstErrorEl = document.getElementById(errors[0].key);
+        if (firstErrorEl) {
+          firstErrorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+      
+      return { pass: errors.length === 0, errors };
+    })()
+  `
+}
+
+// Hàm cũ: Validate bằng Playwright spawn (deprecated - giữ lại để backup)
 function runValidate(
   url: string,
-  jsonObj: Record<string, string>
+  jsonObj: Record<string, string>,
+  browserOpened?: boolean
 ): Promise<{ pass: boolean; errors: any[] }> {
   return new Promise(async (resolve, reject) => {
     const runnerPath = path.join(__dirname, '../electron/runners/validatePage.cjs')
@@ -178,21 +613,21 @@ function runValidate(
       return reject(new Error(`Runner file not found: ${runnerPath}`))
     }
 
-    // Kill process cũ nếu có (để có thể test nhiều lần mà không cần đóng browser)
+    // Không kill process cũ - để giữ browser mở và có thể test nhiều lần
+    // Browser sẽ tự động reuse nếu dùng cùng userDataDir (persistent context)
+    // Process cũ sẽ tiếp tục chạy để giữ browser mở
     if (currentValidateProcess && !currentValidateProcess.killed) {
-      console.log('⚠️ Killing previous validate process (PID:', currentValidateProcess.pid, ') to start new test...')
-      try {
-        currentValidateProcess.kill('SIGTERM')
-        // Đợi một chút để process cũ có thời gian cleanup
-        await new Promise(resolve => setTimeout(resolve, 500))
-      } catch (e) {
-        console.log('⚠️ Error killing previous process:', e)
-      }
+      console.log('ℹ️ Previous validate process still running (PID:', currentValidateProcess.pid, ')')
+      console.log('ℹ️ Browser is still open - new test will reuse the same browser instance')
+      console.log('ℹ️ Previous browser tab will stay open for comparison')
+      // KHÔNG kill process cũ - để giữ browser mở
+      // User có thể test nhiều lần và so sánh kết quả
     }
     
     // ✅ fork runner (dùng fork thay vì spawn để tránh crash trong Electron)
     // fork() tự động dùng Node.js thay vì electron.exe
-    const child = fork(runnerPath, [url, tempFile], {
+    // Truyền browserOpened flag để runner biết có nên reuse tab không
+    const child = fork(runnerPath, [url, tempFile, browserOpened ? 'reuse' : 'new'], {
       cwd: path.join(__dirname, '../..'), // Set về root project để tìm đúng node_modules
       env: {
         ...process.env,
@@ -263,8 +698,10 @@ function runValidate(
                   unlinkSync(tempFile)
                 } catch {}
                 
-                // Clear reference
-                if (currentValidateProcess === child) {
+                // KHÔNG clear reference nếu browser đã mở (browserOpened = true)
+                // Để giữ browser mở cho các lần test tiếp theo
+                // Chỉ clear reference khi không phải reuse mode
+                if (!browserOpened && currentValidateProcess === child) {
                   currentValidateProcess = null
                 }
                 
@@ -357,8 +794,10 @@ function runValidate(
         const data = JSON.parse(out.trim())
         resultResolved = true
         
-        // Clear reference
-        if (currentValidateProcess === child) {
+        // KHÔNG clear reference nếu browser đã mở (browserOpened = true)
+        // Để giữ browser mở cho các lần test tiếp theo
+        // Chỉ clear reference khi không phải reuse mode
+        if (!browserOpened && currentValidateProcess === child) {
           currentValidateProcess = null
         }
         

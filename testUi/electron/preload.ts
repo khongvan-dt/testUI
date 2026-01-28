@@ -21,7 +21,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
 
 contextBridge.exposeInMainWorld('api', {
   scanPage: (url: string) => ipcRenderer.invoke('scan-page', url),
-  validatePage: (url: string, jsonObj: any) =>
-    ipcRenderer.invoke('validate-page', url, jsonObj),
+  validatePage: (url: string, jsonObj: any, browserOpened?: boolean) =>
+    ipcRenderer.invoke('validate-page', url, jsonObj, browserOpened),
   openBrowser: (url: string) => ipcRenderer.invoke('open-browser', url),
 })

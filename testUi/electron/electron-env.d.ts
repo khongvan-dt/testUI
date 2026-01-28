@@ -26,7 +26,7 @@ interface Window {
   ipcRenderer: import('electron').IpcRenderer
   api: {
     scanPage: (url: string) => Promise<{ id: string; value: string }[]>
-    validatePage: (url: string, jsonObj: Record<string, string>) => Promise<{ pass: boolean; errors: any[] }>
+    validatePage: (url: string, jsonObj: Record<string, string>, browserOpened?: boolean) => Promise<{ pass: boolean; errors: any[] }>
     openBrowser: (url: string) => Promise<{ success: boolean }>
   }
 }

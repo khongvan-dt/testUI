@@ -15,6 +15,8 @@ process.on('unhandledRejection', (reason, promise) => {
 const { chromium } = require('playwright-core')
 
 const fs = require('fs')
+const path = require('path')
+const os = require('os')
 
 async function main() {
   try {
@@ -26,6 +28,7 @@ async function main() {
   
   const url = process.argv[2]
   const jsonFilePath = process.argv[3]
+  const reuseMode = process.argv[4] === 'reuse' // 'reuse' hoặc 'new'
 
   if (!url) {
     console.error('Missing url')
@@ -39,6 +42,7 @@ async function main() {
 
   console.error('URL:', url)
   console.error('JSON file path:', jsonFilePath)
+  console.error('Reuse mode:', reuseMode ? 'reuse existing tab' : 'create new tab')
   
   // Kiểm tra file có tồn tại không
   if (!fs.existsSync(jsonFilePath)) {
@@ -84,66 +88,352 @@ async function main() {
 
   console.error('Launching browser...')
   let browser
+  let context = null // Browser context (nếu dùng launchPersistentContext)
   let useHeadless = false // Mở browser để user có thể xem kết quả validate trực tiếp
   
+  // Dùng user data directory cố định để có thể reuse browser instance
+  const userDataDir = path.join(os.tmpdir(), 'ui-i18n-tool-browser')
+  
   // Thử mở browser không headless để user có thể xem kết quả
+  // Với userDataDir cố định, nếu browser đã mở, sẽ báo lỗi "User data directory is already in use"
+  // Trong trường hợp đó, không dùng userDataDir và launch browser mới (sẽ tạo tab mới trong browser đang chạy)
+  let browserLaunchedSuccessfully = false
+  
   try {
-    browser = await chromium.launch({ 
-      headless: false, // Mở browser để user có thể xem
-      timeout: 60000,
-      // Thêm args để giữ browser mở khi process exit
-      args: [
-        '--no-sandbox', 
-        '--disable-setuid-sandbox',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding'
-      ]
-    })
-    console.error('Browser launched successfully (non-headless mode - user can see results)')
-    useHeadless = false
-  } catch (e) {
-    console.error('Failed to launch browser in non-headless mode:', e.message)
-    console.error('Falling back to headless mode...')
-    
-    // Fallback: thử headless mode nếu non-headless fail
     try {
-      browser = await chromium.launch({ 
-        headless: true,
+      // Dùng launchPersistentContext để có thể dùng userDataDir
+      // launchPersistentContext tự động tạo page đầu tiên, nên không cần newPage()
+      // Nếu browser đã mở, sẽ reuse và tạo tab mới
+      context = await chromium.launchPersistentContext(userDataDir, {
+        headless: false, // Mở browser để user có thể xem
         timeout: 60000,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        // Thêm args để giữ browser mở khi process exit và đảm bảo hiển thị
+        args: [
+          '--no-sandbox', 
+          '--disable-setuid-sandbox',
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-renderer-backgrounding',
+          '--start-maximized', // Mở browser ở chế độ maximized
+          '--window-position=0,0', // Đặt vị trí window
+          '--disable-infobars', // Tắt infobars
+          '--disable-dev-shm-usage' // Tránh lỗi shared memory
+        ]
       })
-      console.error('Browser launched successfully (headless mode - fallback)')
-      useHeadless = true
-    } catch (e2) {
-      console.error('Failed to launch browser in headless mode:', e2.message)
-      console.error('Error stack:', e2.stack)
-      // Kiểm tra lỗi phổ biến
-      if (e2.message && (e2.message.includes('Executable doesn\'t exist') || e2.message.includes('Browser not found'))) {
-        console.error('❌ Playwright browser chưa được cài đặt!')
-        console.error('Vui lòng chạy: npx playwright install chromium')
+      browser = context.browser()
+      browserLaunchedSuccessfully = true
+      console.error('✅ Browser launched/reused successfully with persistent context')
+      console.error('Browser user data dir:', userDataDir)
+      // Với persistent context, browser có thể không có method process()
+      // Nhưng điều này không quan trọng - browser vẫn hoạt động bình thường
+      try {
+        const pid = browser?.process?.()?.pid
+        if (pid) {
+          console.error('Browser process PID:', pid)
+        }
+      } catch (e) {
+        // Không quan trọng nếu không lấy được PID - browser vẫn chạy bình thường
+        console.error('Browser process info not available (this is OK - browser is running)')
       }
-      process.stderr.write('ERROR: ' + (e2.message || String(e2)) + '\n')
-      process.stderr.write('STACK: ' + (e2.stack || 'No stack trace') + '\n')
-      process.exit(1)
+      console.error('Existing pages:', context.pages().length)
+      useHeadless = false
+      
+      // Đợi một chút để đảm bảo browser window đã mở
+      await new Promise(resolve => setTimeout(resolve, 500))
+      console.error('✅ Browser window should be visible now')
+      console.error('ℹ️ Previous tabs (if any) will stay open - new tab will be created for this test')
+    } catch (userDataDirError) {
+      // Nếu userDataDir đang được sử dụng (browser đã mở), xử lý tùy theo reuse mode
+      if (userDataDirError.message && (
+        userDataDirError.message.includes('User data directory is already in use') ||
+        userDataDirError.message.includes('Target page, context or browser has been closed')
+      )) {
+        if (reuseMode) {
+          // Trong reuse mode, nếu browser đã đóng hoặc không thể connect, tạo browser mới
+          console.error('ℹ️ Browser was closed or cannot be reused, creating new browser instance')
+          console.error('ℹ️ This will create a new browser window for testing')
+          
+          // Đợi một chút để đảm bảo browser cũ đã đóng hoàn toàn
+          await new Promise(resolve => setTimeout(resolve, 1000))
+          
+          // Thử lại với userDataDir mới hoặc không dùng userDataDir
+          // Tạo userDataDir mới với timestamp để tránh conflict
+          const newUserDataDir = path.join(os.tmpdir(), `ui-i18n-tool-browser-${Date.now()}`)
+          try {
+            context = await chromium.launchPersistentContext(newUserDataDir, {
+              headless: false,
+              timeout: 60000,
+              args: [
+                '--no-sandbox', 
+                '--disable-setuid-sandbox',
+                '--disable-background-timer-throttling',
+                '--disable-backgrounding-occluded-windows',
+                '--disable-renderer-backgrounding',
+                '--start-maximized',
+                '--window-position=0,0',
+                '--disable-infobars',
+                '--disable-dev-shm-usage'
+              ]
+            })
+            browser = context.browser()
+            browserLaunchedSuccessfully = true
+            console.error('✅ New browser instance created with new userDataDir')
+            console.error('Browser user data dir:', newUserDataDir)
+            console.error('Existing pages:', context.pages().length)
+            useHeadless = false
+            
+            await new Promise(resolve => setTimeout(resolve, 500))
+            console.error('✅ Browser window should be visible now')
+          } catch (retryError) {
+            // Nếu vẫn lỗi, fallback sang launch không dùng userDataDir
+            console.error('⚠️ Failed to create browser with new userDataDir, falling back to regular launch')
+            browser = await chromium.launch({ 
+              headless: false,
+              timeout: 60000,
+              args: [
+                '--no-sandbox', 
+                '--disable-setuid-sandbox',
+                '--disable-background-timer-throttling',
+                '--disable-backgrounding-occluded-windows',
+                '--disable-renderer-backgrounding',
+                '--start-maximized',
+                '--window-position=0,0',
+                '--disable-infobars',
+                '--disable-dev-shm-usage'
+              ]
+            })
+            browserLaunchedSuccessfully = true
+            console.error('✅ Browser launched without persistent context')
+            useHeadless = false
+            
+            await new Promise(resolve => setTimeout(resolve, 500))
+            console.error('✅ Browser window should be visible now')
+          }
+        } else {
+          // Không phải reuse mode, launch browser mới như bình thường
+          console.error('ℹ️ Browser is already running, launching new browser instance (will create new tab)')
+          browser = await chromium.launch({ 
+            headless: false,
+            timeout: 60000,
+            args: [
+              '--no-sandbox', 
+              '--disable-setuid-sandbox',
+              '--disable-background-timer-throttling',
+              '--disable-backgrounding-occluded-windows',
+              '--disable-renderer-backgrounding',
+              '--start-maximized',
+              '--window-position=0,0',
+              '--disable-infobars',
+              '--disable-dev-shm-usage'
+            ]
+          })
+          browserLaunchedSuccessfully = true
+          console.error('✅ New browser instance launched')
+          console.error('Browser process PID:', browser.process()?.pid)
+          useHeadless = false
+          
+          await new Promise(resolve => setTimeout(resolve, 500))
+          console.error('✅ Browser window should be visible now')
+        }
+      } else {
+        // Lỗi khác, throw lại để catch block bên ngoài xử lý
+        throw userDataDirError
+      }
+    }
+  } catch (e) {
+    // Chỉ fallback sang headless nếu browser chưa được launch thành công
+    if (browserLaunchedSuccessfully) {
+      // Browser đã launch thành công, chỉ có lỗi nhỏ (như không lấy được process info)
+      // Không fallback, tiếp tục với browser đã launch
+      console.error('⚠️ Minor error occurred but browser is already running:', e.message)
+      console.error('✅ Continuing with browser (it is visible and working)')
+      useHeadless = false
+      // Browser và context đã được set ở trên, không cần làm gì thêm
+    } else {
+      // Browser chưa launch thành công, fallback sang headless
+      console.error('❌ Failed to launch browser in non-headless mode:', e.message)
+      console.error('Error stack:', e.stack)
+      console.error('⚠️ This should not happen - browser should be visible!')
+      console.error('Falling back to headless mode (browser will NOT be visible)...')
+      
+      // Fallback: thử headless mode nếu non-headless fail
+      // NHƯNG cảnh báo user rằng browser sẽ không hiển thị
+      try {
+        browser = await chromium.launch({ 
+          headless: true,
+          timeout: 60000,
+          args: ['--no-sandbox', '--disable-setuid-sandbox']
+        })
+        console.error('⚠️ Browser launched in HEADLESS mode - browser window will NOT be visible!')
+        console.error('⚠️ This is a fallback - you should see the browser window normally')
+        useHeadless = true
+      } catch (e2) {
+        console.error('Failed to launch browser in headless mode:', e2.message)
+        console.error('Error stack:', e2.stack)
+        // Kiểm tra lỗi phổ biến
+        if (e2.message && (e2.message.includes('Executable doesn\'t exist') || e2.message.includes('Browser not found'))) {
+          console.error('❌ Playwright browser chưa được cài đặt!')
+          console.error('Vui lòng chạy: npx playwright install chromium')
+        }
+        process.stderr.write('ERROR: ' + (e2.message || String(e2)) + '\n')
+        process.stderr.write('STACK: ' + (e2.stack || 'No stack trace') + '\n')
+        process.exit(1)
+      }
     }
   }
   
-  const page = await browser.newPage()
-  console.error('New page created')
+  // Nếu dùng launchPersistentContext, có thể reuse page hoặc tạo page mới
+  // Nếu dùng launch thông thường, cần tạo page mới
+  let page
+  if (context) {
+    const existingPages = context.pages()
+    console.error('Existing pages in context:', existingPages.length)
+    
+    if (reuseMode && existingPages.length > 0) {
+      // Reuse page đầu tiên - đóng các page khác để tránh lộn xộn
+      console.error('🔄 Reusing existing tab (reuse mode)')
+      
+      // Đóng các page khác (giữ lại page đầu tiên)
+      for (let i = 1; i < existingPages.length; i++) {
+        try {
+          await existingPages[i].close()
+          console.error(`✅ Closed old tab ${i + 1}`)
+        } catch (e) {
+          console.error(`⚠️ Failed to close tab ${i + 1}:`, e.message)
+        }
+      }
+      
+      // Reuse page đầu tiên
+      page = existingPages[0]
+      console.error('✅ Reusing existing page/tab')
+      
+      // Clear cache của page để đảm bảo load dữ liệu mới
+      try {
+        // Clear cache và storage của page
+        const client = await page.target().createCDPSession()
+        await client.send('Network.clearBrowserCache')
+        await client.send('Network.clearBrowserCookies')
+        await page.evaluate(() => {
+          // Clear localStorage và sessionStorage
+          localStorage.clear()
+          sessionStorage.clear()
+        })
+        console.error('✅ Page cache cleared for reuse')
+      } catch (e) {
+        console.error('⚠️ Failed to clear page cache (continuing anyway):', e.message)
+      }
+      
+      // Đảm bảo tab được activate và bring to front
+      await page.bringToFront()
+      console.error('✅ Tab brought to front')
+    } else {
+      // Tạo page mới
+      if (reuseMode) {
+        // Nếu reuse mode nhưng không có page nào, đóng tất cả và tạo mới
+        console.error('⚠️ Reuse mode requested but no existing pages found, creating new page')
+        for (const p of existingPages) {
+          try {
+            await p.close()
+          } catch (e) {
+            // Ignore errors
+          }
+        }
+      }
+      
+      page = await context.newPage()
+      console.error('✅ New page/tab created')
+      console.error('Total pages in context:', context.pages().length)
+      
+      // Đảm bảo tab mới được activate và bring to front
+      await page.bringToFront()
+      console.error('✅ New tab brought to front')
+    }
+  } else {
+    page = await browser.newPage()
+    console.error('✅ New page created')
+  }
+  
+  console.error('Browser is connected:', browser?.isConnected())
+  if (browser) {
+    console.error('Browser context count:', browser.contexts().length)
+  }
+  
+  // Đảm bảo page đã sẵn sàng
+  await page.setViewportSize({ width: 1280, height: 720 })
+  console.error('✅ Page viewport set, browser window should be visible')
 
   console.error('Navigating to URL...')
   try {
-    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 })
-    console.error('Page loaded')
+    // Clear cache và cookies để đảm bảo load dữ liệu mới
+    if (context) {
+      // Clear cookies và cache của context
+      await context.clearCookies()
+      console.error('✅ Cookies cleared')
+    }
+    
+    // Navigate với cache disabled để đảm bảo load dữ liệu mới
+    // Và đảm bảo tab mới được focus
+    await page.goto(url, { 
+      waitUntil: 'networkidle', 
+      timeout: 30000,
+      // Disable cache để đảm bảo load dữ liệu mới mỗi lần validate
+      // Đặc biệt quan trọng khi validate nhiều lần với dữ liệu khác nhau
+      referer: undefined
+    })
+    
+    // Đảm bảo tab được focus sau khi navigate
+    await page.bringToFront()
+    
+    // Đợi một chút để đảm bảo trang đã load hoàn toàn
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
+    console.error('Page loaded and tab focused')
+    console.error('Current page URL:', page.url())
+    console.error('Current tab is active:', await page.evaluate(() => !document.hidden))
   } catch (e) {
     console.error('Error navigating to URL:', e.message)
-    await browser.close()
+    if (context) {
+      await context.close()
+    } else if (browser) {
+      await browser.close()
+    }
     throw e
   }
 
+  // ✅ Clear tất cả form inputs trước khi điền dữ liệu mới
+  // Đảm bảo mỗi lần validate bắt đầu từ trạng thái sạch
+  console.error('Clearing all form inputs before filling new data...')
+  try {
+    await page.evaluate(() => {
+      // Clear tất cả input, textarea, select
+      const inputs = document.querySelectorAll('input, textarea, select')
+      inputs.forEach((el) => {
+        if (el instanceof HTMLInputElement) {
+          if (el.type === 'checkbox' || el.type === 'radio') {
+            el.checked = false
+          } else {
+            el.value = ''
+          }
+        } else if (el instanceof HTMLTextAreaElement) {
+          el.value = ''
+        } else if (el instanceof HTMLSelectElement) {
+          el.selectedIndex = 0
+        }
+        // Trigger events để form biết đã thay đổi
+        el.dispatchEvent(new Event('input', { bubbles: true }))
+        el.dispatchEvent(new Event('change', { bubbles: true }))
+      })
+    })
+    console.error('✅ All form inputs cleared')
+  } catch (e) {
+    console.error('⚠️ Error clearing form inputs (continuing anyway):', e.message)
+  }
+  
+  // Đợi một chút để đảm bảo form đã được clear
+  await new Promise(resolve => setTimeout(resolve, 200))
+  
   // ✅ Tự động điền form và submit trước khi validate
-  console.error('Auto-filling form inputs...')
+  console.error('Auto-filling form inputs with new JSON data...')
   let formSubmitted = false
   let apiErrors = [] // Lưu các lỗi từ API (khai báo ở đây để có thể dùng ở ngoài scope)
   
@@ -1180,7 +1470,11 @@ async function main() {
     await new Promise(resolve => setTimeout(resolve, 100))
   } catch (e) {
     console.error('Error writing result:', e)
-    await browser.close()
+    if (context) {
+      await context.close()
+    } else if (browser) {
+      await browser.close()
+    }
     process.exit(1)
   }
   
@@ -1199,19 +1493,35 @@ async function main() {
     // Khi test lần tiếp theo, main.ts sẽ kill process cũ và start process mới
     
     // Đợi browser đóng hoặc process bị kill
-    browser.on('disconnected', () => {
-      console.error('Browser disconnected, exiting process...')
-      process.exit(0)
-    })
+    // Với persistent context, cần listen trên context thay vì browser
+    if (context) {
+      context.on('close', () => {
+        console.error('Context closed, exiting process...')
+        process.exit(0)
+      })
+    } else if (browser) {
+      browser.on('disconnected', () => {
+        console.error('Browser disconnected, exiting process...')
+        process.exit(0)
+      })
+    }
     
     // Không exit process - để giữ browser mở
     // Process sẽ chạy mãi cho đến khi browser đóng hoặc bị kill
+    // User có thể test nhiều lần với cùng browser instance
+    console.error('⏳ Process will keep running to maintain browser open...')
+    console.error('⏳ You can test again - browser will stay open')
+    console.error('⏳ Close browser manually when done testing')
     
   } else {
     // Nếu headless mode, đóng browser ngay sau khi validate xong
     console.error('Headless mode: Closing browser...')
     try {
-      await browser.close()
+      if (context) {
+        await context.close()
+      } else if (browser) {
+        await browser.close()
+      }
       console.error('Browser closed successfully')
     } catch (e) {
       console.error('Error closing browser:', e.message)

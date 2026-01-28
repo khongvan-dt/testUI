@@ -3,6 +3,6 @@
 interface Window {
   api: {
     scanPage: (url: string) => Promise<{ id: string; value: string }[]>
-    validatePage: (url: string, jsonObj: any) => Promise<{ pass: boolean; errors: any[] }>
+    validatePage: (url: string, jsonObj: any, browserOpened?: boolean) => Promise<{ pass: boolean; errors: any[] }>
   }
 }

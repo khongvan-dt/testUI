@@ -23,4 +23,8 @@ electron_1.contextBridge.exposeInMainWorld('api', {
     scanPage: (url) => electron_1.ipcRenderer.invoke('scan-page', url),
     validatePage: (url, jsonObj, browserOpened) => electron_1.ipcRenderer.invoke('validate-page', url, jsonObj, browserOpened),
     openBrowser: (url) => electron_1.ipcRenderer.invoke('open-browser', url),
+    openTestWindow: (loginUrl) => electron_1.ipcRenderer.invoke('open-test-window', loginUrl),
+    scanCurrentPage: () => electron_1.ipcRenderer.invoke('scan-current-page'),
+    clickSubmitInTestWindow: () => electron_1.ipcRenderer.invoke('click-submit-in-test-window'),
+    validateCurrentPage: (jsonObj) => electron_1.ipcRenderer.invoke('validate-current-page', jsonObj),
 });

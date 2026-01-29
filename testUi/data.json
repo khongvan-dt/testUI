@@ -1,0 +1,73 @@
+{
+        "tenTraVe": "Trả vé theo ngày tự chọn",
+        "listMacTau": "SE1,SE2,SE8",
+        "ngayApDungTu": "13/06/2025",
+        "ngayApDungDen": "31/12/2025",
+        "ngayBanTu": "13/06/2025",
+        "ngayBanDen": "31/12/2025",
+        "status": 1,
+        "soCongVan": "gg",
+    
+        "luatTraVeDetails": [
+            {
+                
+                "luatTraVeApDungs": [
+                    {
+                        
+                      
+                        "traTruocTuSoPhut": 0,
+                        "traTruocDenSoPhut": 2880,
+                        "tyLeTraVe": 0.00,
+                        "camTraVe": false,
+                        "camDoiVe": false
+                    },
+                    {
+                        
+                        
+                        "traTruocTuSoPhut": 2881,
+                        "traTruocDenSoPhut": 100000,
+                        "tyLeTraVe": 50.00,
+                        "camTraVe": false,
+                        "camDoiVe": false
+                    }
+                ],
+                "tenMoTaTraVe": "trả thường 2",
+                
+                "maLP": 1,
+                "ngayDiTu": "18/06/2025",
+                "ngayDiDen": "27/11/2025",
+                "listLoaiCho": "SlaAnLT1,SlaAnLT2"
+            },
+            {
+               
+                "luatTraVeApDungs": [
+                    {
+                       
+                         
+                         
+                        "traTruocTuSoPhut": 0,
+                        "traTruocDenSoPhut": 2880,
+                        "tyLeTraVe": 0.00,
+                        "camTraVe": false,
+                        "camDoiVe": false
+                    },
+                    {
+                       
+                        
+                        "traTruocTuSoPhut": 2881,
+                        "traTruocDenSoPhut": 100000,
+                        "tyLeTraVe": 50.00,
+                        "camTraVe": false,
+                        "camDoiVe": false
+                    }
+                ],
+                "tenMoTaTraVe": "trả khác",
+                
+                "maLP": 4,
+                "ngayDiTu": "30/09/2025",
+                "ngayDiDen": "31/10/2025",
+                "listLoaiCho": "SlaAnLT1,SlaAnLT1v,SlaAnLT2,SlaAnLT2v"
+            }
+        ]
+     
+}

@@ -138,11 +138,557 @@ ipcMain.handle('validate-page', async (_event, url: string, jsonObj: any, browse
   }
 })
 
+// IPC handler: Mở BrowserWindow để user login thủ công
+ipcMain.handle('open-test-window', async (_event, loginUrl?: string) => {
+  console.log('🪟 IPC handler open-test-window called, loginUrl:', loginUrl)
+  try {
+    await openTestWindow(loginUrl)
+    return { success: true }
+  } catch (error) {
+    console.error('❌ IPC handler open-test-window error:', error)
+    throw error
+  }
+})
+
+// IPC handler: Scan trang hiện tại trong BrowserWindow
+ipcMain.handle('scan-current-page', async (_event) => {
+  console.log('📥 IPC handler scan-current-page called')
+  try {
+    const result = await scanCurrentPage()
+    console.log('✅ IPC handler scan-current-page returning result, count:', result.length)
+    return result
+  } catch (error) {
+    console.error('❌ IPC handler scan-current-page error:', error)
+    throw error
+  }
+})
+
+// IPC handler: Click nút submit trên trang hiện tại trong BrowserWindow
+ipcMain.handle('click-submit-in-test-window', async () => {
+  console.log('📥 IPC handler click-submit-in-test-window called')
+  try {
+    const result = await clickSubmitInTestWindow()
+    console.log('✅ IPC handler click-submit-in-test-window result:', result)
+    return result
+  } catch (error) {
+    console.error('❌ IPC handler click-submit-in-test-window error:', error)
+    throw error
+  }
+})
+
+// IPC handler: Validate trên trang hiện tại (không load URL mới)
+ipcMain.handle('validate-current-page', async (_event, jsonObj: any) => {
+  console.log('📥 IPC handler validate-current-page called')
+  console.log('JSON object:', JSON.stringify(jsonObj).substring(0, 200))
+  try {
+    const result = await validateCurrentPage(jsonObj)
+    console.log('✅ IPC handler validate-current-page returning result:', result)
+    return result
+  } catch (error) {
+    console.error('❌ IPC handler validate-current-page error:', error)
+    throw error
+  }
+})
+
+
+// Chuẩn hóa URL: thêm http:// nếu thiếu protocol
+function normalizeUrl(url: string): string {
+  const trimmed = (url || '').trim()
+  if (!trimmed) return trimmed
+  // Nếu đã có protocol, giữ nguyên
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed
+  }
+  // Nếu bắt đầu bằng localhost hoặc IP hoặc domain, thêm http://
+  if (/^[a-zA-Z0-9.-]+(:\d+)?(\/|$)/.test(trimmed) || trimmed.startsWith('localhost')) {
+    return `http://${trimmed}`
+  }
+  return trimmed
+}
+
+// Hàm: Mở BrowserWindow để user login thủ công
+async function openTestWindow(loginUrl?: string): Promise<void> {
+  // Chuẩn hóa URL trước khi load
+  const urlToLoad = loginUrl ? normalizeUrl(loginUrl) : undefined
+
+  // Tạo hoặc reuse BrowserWindow
+  if (!testWindow || testWindow.isDestroyed()) {
+    console.log('🆕 Creating new test BrowserWindow...')
+    testWindow = new BrowserWindow({
+      width: 1400,
+      height: 900,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        webSecurity: true,
+      },
+      show: true,
+    })
+    
+    testWindow.on('closed', () => {
+      testWindow = null
+      console.log('🔒 Test window closed')
+    })
+    
+    console.log('✅ Test BrowserWindow created')
+  } else {
+    console.log('♻️ Reusing existing test BrowserWindow')
+    testWindow.focus()
+  }
+  
+  // Nếu có loginUrl, load URL đó; nếu không, để user tự điều hướng
+  if (urlToLoad) {
+    const currentURL = testWindow.webContents.getURL()
+    if (currentURL !== urlToLoad && !currentURL.includes(urlToLoad.split('?')[0])) {
+      console.log(`📂 Loading login URL: ${urlToLoad}`)
+      await testWindow.loadURL(urlToLoad)
+      // Đợi page load xong
+      await new Promise(resolve => setTimeout(resolve, 2000))
+    } else {
+      console.log(`♻️ Login URL already loaded: ${currentURL}`)
+    }
+  } else if (loginUrl?.trim()) {
+    // User nhập URL nhưng sau khi normalize vẫn rỗng (không xảy ra) hoặc chỉ có khoảng trắng
+    console.log('ℹ️ No valid login URL after normalize')
+  } else {
+    console.log('ℹ️ No login URL provided - user will navigate manually')
+    // Nếu window chưa có URL nào, load about:blank
+    const currentURL = testWindow.webContents.getURL()
+    if (!currentURL || currentURL === 'about:blank') {
+      await testWindow.loadURL('about:blank')
+    }
+  }
+}
+
+// Hàm: Scan trang hiện tại trong BrowserWindow
+async function scanCurrentPage(): Promise<{ id: string; value: string }[]> {
+  // Kiểm tra BrowserWindow đã mở chưa
+  if (!testWindow || testWindow.isDestroyed()) {
+    throw new Error('BrowserWindow chưa được mở. Vui lòng nhấn "Mở BrowserWindow" trước.')
+  }
+  
+  const currentURL = testWindow.webContents.getURL()
+  if (!currentURL || currentURL === 'about:blank') {
+    throw new Error('BrowserWindow chưa load trang nào. Vui lòng điều hướng đến trang cần test trước.')
+  }
+  
+  console.log(`🔍 Scanning current page: ${currentURL}`)
+  testWindow.focus()
+  
+  // Đợi một chút để đảm bảo page sẵn sàng
+  await new Promise(resolve => setTimeout(resolve, 1000))
+  
+  // Scroll để trigger lazy loading
+  await testWindow.webContents.executeJavaScript(`
+    (async function() {
+      // Scroll về đầu trang
+      window.scrollTo(0, 0)
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      // Scroll xuống dần để trigger lazy loading
+      const scrollHeight = document.documentElement.scrollHeight
+      const viewportHeight = window.innerHeight
+      
+      for (let scroll = 0; scroll < scrollHeight; scroll += viewportHeight) {
+        window.scrollTo(0, scroll)
+        await new Promise(resolve => setTimeout(resolve, 300))
+      }
+      
+      // Scroll về đầu trang
+      window.scrollTo(0, 0)
+      await new Promise(resolve => setTimeout(resolve, 500))
+    })()
+  `)
+  
+  // Đợi thêm một chút để đảm bảo tất cả đã render
+  await new Promise(resolve => setTimeout(resolve, 1000))
+  
+  // Scan script với phân tích cấu trúc phân cấp
+  const scanScript = `
+    (function() {
+      try {
+      const result = []
+      const elements = Array.from(document.querySelectorAll('[id]'))
+      const elementMap = new Map() // Map id -> element
+      const parentMap = new Map() // Map id -> parent id
+
+      // Loại bỏ các phần tử không cần thiết
+      const excludeTags = ['STYLE', 'SCRIPT', 'NOSCRIPT', 'META', 'LINK', 'HEAD']
+      const excludeIds = [
+        'googleidentityservice',
+        'gsi',
+        '__next',
+        'react',
+        'app',
+        'root',
+      ]
+      
+      // Loại bỏ các id quá ngắn hoặc không có ý nghĩa
+      const excludeIdPatterns = [
+        /^[a-z]$/i, // Chỉ 1 ký tự
+        /^[0-9]+$/, // Chỉ số
+        /^pv_id_\d+$/i, // Auto-generated IDs như pv_id_329
+        /^[a-z]+_id_\d+$/i, // Pattern: prefix_id_number (auto-generated)
+        /^id_\d+$/i, // Pattern: id_number
+      ]
+      
+      // Function để check xem id có phải auto-generated không
+      function isAutoGeneratedId(id) {
+        // Check patterns
+        if (excludeIdPatterns.some(pattern => pattern.test(id))) {
+          return true
+        }
+        
+        // Check pattern: letters_underscore_letters_underscore_numbers (như pv_id_329)
+        if (/^[a-z]+_[a-z]+_\d+$/i.test(id)) {
+          return true
+        }
+        
+        // Check pattern cụ thể: pv_id_xxx, id_xxx, etc.
+        if (/^(pv|id|auto|gen|temp|tmp)_[a-z]*_\d+$/i.test(id)) {
+          return true
+        }
+        
+        // Check pattern: chỉ có số ở cuối sau underscore (như prefix_123)
+        // Nhưng giữ lại các id có camelCase như ngayApDungTu, tenMoTaTraVe
+        if (/^[a-z]+_\d+$/i.test(id)) {
+          // Nếu có camelCase sau underscore đầu tiên, giữ lại
+          const parts = id.split('_')
+          if (parts.length === 2 && /[A-Z]/.test(parts[0])) {
+            return false // Giữ lại camelCase như ngayApDungTu
+          }
+          return true // Loại bỏ pattern như prefix_123
+        }
+        
+        return false
+      }
+
+      // Bước 1: Lọc và map các elements
+      for (const el of elements) {
+        const id = (el.id || '').trim()
+        if (!id) continue
+
+        // Bỏ qua các tag không cần thiết
+        if (excludeTags.includes(el.tagName)) continue
+        
+        // Bỏ qua các id chứa từ khóa không cần thiết
+        if (excludeIds.some(exclude => id.toLowerCase() === exclude.toLowerCase())) continue
+        
+        // Bỏ qua các id match pattern không cần thiết hoặc auto-generated
+        if (isAutoGeneratedId(id)) continue
+        
+        // Bỏ qua các phần tử ẩn (nhưng giữ lại các input/select/textarea)
+        const style = window.getComputedStyle(el)
+        const isInputElement = el instanceof HTMLInputElement || 
+                              el instanceof HTMLTextAreaElement || 
+                              el instanceof HTMLSelectElement
+        
+        if (!isInputElement && (style.display === 'none' || style.visibility === 'hidden')) continue
+
+        elementMap.set(id, el)
+      }
+
+      // Bước 2: Xác định parent-child relationship
+      // Tìm parent có id gần nhất trong DOM tree
+      for (const [id, el] of elementMap.entries()) {
+        let parent = el.parentElement
+        let parentId = null
+        
+        // Tìm parent có id trong elementMap
+        while (parent) {
+          const pid = parent.id?.trim()
+          if (pid && elementMap.has(pid)) {
+            parentId = pid
+            break
+          }
+          parent = parent.parentElement
+        }
+        
+        if (parentId) {
+          parentMap.set(id, parentId)
+        }
+      }
+
+      // Bước 3: Tính toán level và path cho mỗi element
+      function getLevelAndPath(id, visited = new Set()) {
+        if (visited.has(id)) return { level: 0, path: id } // Circular reference
+        
+        visited.add(id)
+        const parentId = parentMap.get(id)
+        
+        if (!parentId) {
+          return { level: 0, path: id }
+        }
+        
+        const parentInfo = getLevelAndPath(parentId, visited)
+        return {
+          level: parentInfo.level + 1,
+          path: parentInfo.path + '.' + id
+        }
+      }
+
+      // Bước 4: Xác định các container (array containers)
+      // Pattern: id kết thúc bằng "s" hoặc chứa "Details", "ApDungs", "List", etc.
+      const arrayContainerPatterns = [
+        /Details$/i,
+        /ApDungs$/i,
+        /List$/i,
+        /s$/i, // Plural form
+      ]
+      
+      const arrayContainers = new Set()
+      for (const [id, el] of elementMap.entries()) {
+        // Kiểm tra xem element này có phải là container không
+        // (có nhiều child elements có id)
+        const childIds = []
+        for (const child of el.querySelectorAll('[id]')) {
+          const childId = child.id?.trim()
+          if (childId && elementMap.has(childId) && childId !== id) {
+            childIds.push(childId)
+          }
+        }
+        
+        // Nếu có nhiều child hoặc match pattern array container
+        if (childIds.length > 1 || arrayContainerPatterns.some(pattern => pattern.test(id))) {
+          arrayContainers.add(id)
+        }
+      }
+
+      // Bước 5: Xác định arrayIndex cho các element trong array containers
+      // Map để lưu arrayIndex đã được gán cho các element
+      const elementArrayIndexMap = new Map()
+      
+      // Với mỗi array container, nhóm các children elements
+      for (const parentId of arrayContainers) {
+        const parentEl = elementMap.get(parentId)
+        if (!parentEl) continue
+        
+        // Lấy tất cả các element có parent là parentId
+        const childrenElements = Array.from(elementMap.entries())
+          .filter(([cid]) => parentMap.get(cid) === parentId)
+          .map(([cid, cel]) => ({ id: cid, el: cel }))
+        
+        if (childrenElements.length === 0) continue
+        
+        // Nhóm các element dựa trên direct parent (wrapper div/tr)
+        // Các element có cùng direct parent (không có id) sẽ có cùng arrayIndex
+        const groups = new Map()
+        
+        for (const child of childrenElements) {
+          // Tìm direct parent không có id (wrapper element)
+          let wrapper = child.el.parentElement
+          let foundWrapper = null
+          
+          while (wrapper && wrapper !== parentEl) {
+            const wrapperId = wrapper.id?.trim()
+            // Nếu wrapper không có id hoặc id không trong elementMap, đây là wrapper
+            if (!wrapperId || !elementMap.has(wrapperId)) {
+              foundWrapper = wrapper
+              break
+            }
+            wrapper = wrapper.parentElement
+          }
+          
+          // Sử dụng wrapper đã tìm được hoặc element chính nó
+          const groupKey = foundWrapper || child.el
+          if (!groups.has(groupKey)) {
+            groups.set(groupKey, [])
+          }
+          const group = groups.get(groupKey)
+          if (group) {
+            group.push(child)
+          }
+        }
+        
+        // Sắp xếp các groups theo thứ tự trong DOM và gán arrayIndex
+        const DOCUMENT_POSITION_FOLLOWING = 4
+        const DOCUMENT_POSITION_PRECEDING = 2
+        const sortedGroups = Array.from(groups.entries()).sort((a, b) => {
+          try {
+            const pos = a[0].compareDocumentPosition(b[0])
+            if (pos & DOCUMENT_POSITION_FOLLOWING) return -1
+            if (pos & DOCUMENT_POSITION_PRECEDING) return 1
+            return 0
+          } catch (e) {
+            // Fallback: so sánh bằng cách kiểm tra vị trí trong DOM
+            const allElements = Array.from(parentEl.querySelectorAll('*'))
+            const indexA = allElements.indexOf(a[0])
+            const indexB = allElements.indexOf(b[0])
+            return indexA - indexB
+          }
+        })
+        
+        sortedGroups.forEach((group, groupIndex) => {
+          group[1].forEach(child => {
+            elementArrayIndexMap.set(child.id, groupIndex)
+          })
+        })
+      }
+
+      // Bước 6: Tạo kết quả với thông tin phân cấp
+      for (const [id, el] of elementMap.entries()) {
+        const { level, path } = getLevelAndPath(id)
+        const isArrayContainer = arrayContainers.has(id)
+        
+        // Xác định parent id
+        const parentId = parentMap.get(id) || null
+        
+        // Lấy arrayIndex từ map đã tính toán (chỉ khi parent là array container)
+        const arrayIndex = (parentId && arrayContainers.has(parentId)) 
+          ? (elementArrayIndexMap.get(id) ?? null)
+          : null
+
+        let value = ''
+
+        if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+          value = el.placeholder || el.value || ''
+          if (!value) {
+            const label = el.closest('label') || document.querySelector(\`label[for="\${id}"]\`)
+            if (label) {
+              value = label.textContent || ''
+            }
+          }
+        } else if (el instanceof HTMLSelectElement) {
+          value = el.options[el.selectedIndex]?.text || el.options[0]?.text || ''
+        } else if (el instanceof HTMLLabelElement) {
+          value = el.textContent || ''
+        } else {
+          const clone = el.cloneNode(true)
+          clone.querySelectorAll('[id]').forEach(child => child.remove())
+          value = clone.innerText || clone.textContent || ''
+        }
+
+        value = (value || '').trim()
+        
+        // Bỏ qua nếu value quá dài
+        if (value.length > 500) continue
+        
+        // Bỏ qua nếu value chỉ chứa CSS hoặc code
+        if (value.includes('{') && value.includes('}') && value.includes(':')) continue
+        
+        const isInputElement = el instanceof HTMLInputElement || 
+                              el instanceof HTMLTextAreaElement || 
+                              el instanceof HTMLSelectElement
+        
+        // Với input/select/textarea, luôn thêm vào kể cả value rỗng
+        if (!value && !isInputElement) continue
+
+        result.push({ 
+          id, 
+          value,
+          level,
+          path,
+          parentId,
+          arrayIndex: arrayIndex !== null ? arrayIndex : undefined,
+          isArrayContainer
+        })
+      }
+
+      // Sắp xếp theo level và path để hiển thị đúng thứ tự
+      result.sort((a, b) => {
+        if (a.level !== b.level) return a.level - b.level
+        return a.path.localeCompare(b.path)
+      })
+
+      return result
+      } catch (error) {
+        console.error('Scan script error:', error)
+        console.error('Error stack:', error.stack)
+        throw error
+      }
+    })()
+  `
+  
+  try {
+    const items = await testWindow.webContents.executeJavaScript(scanScript)
+    console.log(`✅ Scan complete, found ${items.length} items`)
+    return items
+  } catch (error) {
+    console.error('❌ Error executing scan script:', error)
+    throw error
+  }
+}
+
+// Hàm: Click nút submit trên trang hiện tại trong BrowserWindow
+async function clickSubmitInTestWindow(): Promise<{ clicked: boolean; message?: string }> {
+  if (!testWindow || testWindow.isDestroyed()) {
+    throw new Error('BrowserWindow chưa được mở. Vui lòng nhấn "Mở BrowserWindow" trước.')
+  }
+  const currentURL = testWindow.webContents.getURL()
+  if (!currentURL || currentURL === 'about:blank') {
+    throw new Error('BrowserWindow chưa load trang nào. Vui lòng điều hướng đến trang cần test trước.')
+  }
+  testWindow.focus()
+  await new Promise(resolve => setTimeout(resolve, 300))
+  const clickScript = `
+    (function() {
+      var btn = document.querySelector('button[type="submit"]') ||
+                document.querySelector('input[type="submit"]') ||
+                document.querySelector('#btnSave') ||
+                document.querySelector('button[id="btnSave"]');
+      if (!btn) {
+        var buttons = document.querySelectorAll('button, input[type="submit"]');
+        for (var i = 0; i < buttons.length; i++) {
+          var b = buttons[i];
+          var text = (b.textContent || b.value || '').trim().toLowerCase();
+          if (text.indexOf('lưu') >= 0 || text === 'submit' || text === 'save') {
+            btn = b;
+            break;
+          }
+        }
+      }
+      if (btn) {
+        btn.click();
+        return { clicked: true, message: 'Đã click nút submit' };
+      }
+      return { clicked: false, message: 'Không tìm thấy nút submit' };
+    })()
+  `
+  try {
+    const result = await testWindow.webContents.executeJavaScript(clickScript)
+    return result
+  } catch (error) {
+    console.error('❌ Error clicking submit:', error)
+    throw error
+  }
+}
+
+// Hàm: Validate trên trang hiện tại (không load URL mới)
+async function validateCurrentPage(
+  jsonObj: Record<string, string>
+): Promise<{ pass: boolean; errors: any[] }> {
+  // Kiểm tra BrowserWindow đã mở chưa
+  if (!testWindow || testWindow.isDestroyed()) {
+    throw new Error('BrowserWindow chưa được mở. Vui lòng nhấn "Mở BrowserWindow" trước.')
+  }
+  
+  const currentURL = testWindow.webContents.getURL()
+  if (!currentURL || currentURL === 'about:blank') {
+    throw new Error('BrowserWindow chưa load trang nào. Vui lòng điều hướng đến trang cần test trước.')
+  }
+  
+  console.log(`🔍 Validating current page: ${currentURL}`)
+  testWindow.focus()
+  
+  // Đợi một chút để đảm bảo page sẵn sàng
+  await new Promise(resolve => setTimeout(resolve, 500))
+  
+  // Inject và chạy validation script
+  const validationScript = generateValidationScript(jsonObj)
+  
+  try {
+    const result = await testWindow.webContents.executeJavaScript(validationScript)
+    return result
+  } catch (error) {
+    console.error('❌ Error executing validation script:', error)
+    throw error
+  }
+}
 
 // Hàm mới: Validate bằng BrowserWindow + executeJavaScript (không dùng Playwright spawn)
 async function runValidateInBrowserWindow(
   url: string,
-  jsonObj: Record<string, string>,
+  jsonObj: Record<string, any>,
   browserOpened?: boolean
 ): Promise<{ pass: boolean; errors: any[] }> {
   // Tạo hoặc reuse BrowserWindow
@@ -195,14 +741,86 @@ async function runValidateInBrowserWindow(
   }
 }
 
+// Flatten nested JSON: luatTraVeDetails[0].tenMoTaTraVe -> tenMoTaTraVe; luatTraVeDetails[0].luatTraVeApDungs[1].traTruocTuSoPhut -> traTruocTuSoPhut_0_1
+function flattenForForm(obj: any): Record<string, any> {
+  if (obj == null || typeof obj !== 'object') return {}
+  const result: Record<string, any> = {}
+  for (const key of Object.keys(obj)) {
+    const val = obj[key]
+    if (Array.isArray(val) && val.length > 0 && typeof val[0] === 'object' && val[0] !== null && !Array.isArray(val[0])) {
+      val.forEach((item: any, i: number) => {
+        if (item == null || typeof item !== 'object') return
+        const suffix1 = i === 0 ? '' : '_' + i
+        for (const k of Object.keys(item)) {
+          const v = item[k]
+          if (v === null || v === undefined) continue
+          if (typeof v === 'object' && !Array.isArray(v) && v !== null) continue
+          if (Array.isArray(v) && v.length > 0 && typeof v[0] === 'object' && v[0] !== null) {
+            // Mảng lồng nhau (vd: luatTraVeApDungs) -> flatten thành key_i_0, key_i_1, key_i_2 ... (Luật áp dụng)
+            v.forEach((subItem: any, j: number) => {
+              if (subItem == null || typeof subItem !== 'object') return
+              for (const k2 of Object.keys(subItem)) {
+                const v2 = subItem[k2]
+                if (v2 === null || v2 === undefined) continue
+                if (typeof v2 === 'object' && v2 !== null && !Array.isArray(v2)) continue
+                if (Array.isArray(v2) && v2.length > 0 && typeof v2[0] === 'object') continue
+                const flatKey = k2 + '_' + i + '_' + j
+                result[flatKey] = v2
+              }
+            })
+            continue
+          }
+          if (Array.isArray(v) && (v.length === 0 || typeof v[0] !== 'object')) {
+            result[k + suffix1] = v
+            continue
+          }
+          result[k + suffix1] = v
+        }
+      })
+    } else {
+      result[key] = val
+    }
+  }
+  return result
+}
+
 // Tạo validation script để chạy trong browser context
-function generateValidationScript(jsonObj: Record<string, string>): string {
-  const jsonStr = JSON.stringify(jsonObj)
+function generateValidationScript(jsonObj: Record<string, any>): string {
+  const flat = flattenForForm(jsonObj)
+  const jsonStr = JSON.stringify(flat)
   
   return `
     (async function() {
       const expected = ${jsonStr};
       const errors = [];
+      
+      // Chuyển ngày ISO sang dd/mm/yy (cho DatePicker PrimeVue dateFormat="dd/mm/yy")
+      function isoToDisplayDate(str) {
+        if (!str || typeof str !== 'string') return str;
+        var s = str.trim();
+        var match = s.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);
+        if (!match) return str;
+        var d = match[2], m = match[3], y = match[1].slice(-2);
+        return d + '/' + m + '/' + y;
+      }
+      function isDateKey(key) {
+        var k = (key || '').toLowerCase();
+        return k.indexOf('ngay') >= 0 || k.indexOf('date') >= 0;
+      }
+      function isIsoDateString(str) {
+        if (!str || typeof str !== 'string') return false;
+        return /^\\d{4}-\\d{2}-\\d{2}/.test(str.trim());
+      }
+      function normalizeDateForCompare(str) {
+        if (!str || typeof str !== 'string') return (str || '').trim();
+        var s = str.trim();
+        var m = s.match(/^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{2}|\\d{4})$/);
+        if (m) {
+          var y = m[3].length === 2 ? m[3] : m[3].slice(-2);
+          return (m[1].length === 1 ? '0' + m[1] : m[1]) + '/' + (m[2].length === 1 ? '0' + m[2] : m[2]) + '/' + y;
+        }
+        return s;
+      }
       
       // Clear form inputs
       const inputs = document.querySelectorAll('input, textarea, select');
@@ -216,7 +834,11 @@ function generateValidationScript(jsonObj: Record<string, string>): string {
         } else if (el instanceof HTMLTextAreaElement) {
           el.value = '';
         } else if (el instanceof HTMLSelectElement) {
-          el.selectedIndex = 0;
+          if (el.multiple) {
+            for (var o = 0; o < el.options.length; o++) el.options[o].selected = false;
+          } else {
+            el.selectedIndex = 0;
+          }
         }
         el.dispatchEvent(new Event('input', { bubbles: true }));
         el.dispatchEvent(new Event('change', { bubbles: true }));
@@ -224,58 +846,146 @@ function generateValidationScript(jsonObj: Record<string, string>): string {
       
       await new Promise(resolve => setTimeout(resolve, 200));
       
+      // Lấy giá trị chuỗi từ expected (tránh [object Object] khi value là object/array)
+      function getStringValue(val) {
+        if (val === null || val === undefined) return '';
+        if (typeof val === 'string') return val;
+        if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+        if (Array.isArray(val)) {
+          if (val.length === 0) return '';
+          if (typeof val[0] === 'string') return val[0];
+          if (typeof val[0] === 'number') return String(val[0]);
+          return '';
+        }
+        return '';
+      }
+      
+      // Helper: set value lên input và trigger framework (Vue/React) bằng native setter + InputEvent
+      function setInputValue(inputEl, val) {
+        var v = (val == null ? '' : val) + '';
+        if (inputEl.readOnly) {
+          try { inputEl.removeAttribute('readonly'); } catch (e) {}
+        }
+        try {
+          var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+          setter.call(inputEl, v);
+        } catch (e) {
+          inputEl.value = v;
+        }
+        inputEl.dispatchEvent(new InputEvent('input', { bubbles: true, data: v }));
+        inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+        inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+        inputEl.dispatchEvent(new Event('blur', { bubbles: true }));
+      }
+      
       // Fill form với dữ liệu từ JSON
       for (const key of Object.keys(expected)) {
-        const value = String(expected[key] || '');
-        const selector = '#' + key.replace(/[!"#$%&'()*+,.\\/:;<=>?@[\\\\\\]^\\\`{|}~]/g, '\\\\$&');
-        let element = document.querySelector(selector);
-        
+        let value = getStringValue(expected[key]);
+        if (isDateKey(key) && isIsoDateString(value)) {
+          value = isoToDisplayDate(value);
+        }
+        var escaped = key.replace(/[!"#$%&'()*+,.\\/:;<=>?@[\\\\\\]^\\\`{|}~]/g, '\\\\$&');
+        let element = document.querySelector('#' + escaped);
         if (!element) {
-          // Thử các selector khác
-          const altSelectors = [
-            \`input[name="\${key}"]\`,
-            \`input[id="\${key}"]\`,
-            \`[id="\${key}"]\`,
+          var altSelectors = [
+            'input[name="' + key + '"]',
+            'select[name="' + key + '"]',
+            'input[id="' + key + '"]',
+            'select[id="' + key + '"]',
+            '[id="' + key + '"]'
           ];
-          for (const altSel of altSelectors) {
-            element = document.querySelector(altSel);
+          for (var a = 0; a < altSelectors.length; a++) {
+            element = document.querySelector(altSelectors[a]);
             if (element) break;
           }
         }
-        
         if (!element) continue;
         
-        // Kiểm tra xem có phải wrapper không
+        var wrapper = element;
         if (!(element instanceof HTMLInputElement) && 
             !(element instanceof HTMLTextAreaElement) && 
             !(element instanceof HTMLSelectElement)) {
-          const innerInput = element.querySelector('input, textarea, select');
+          var innerSelect = element.querySelector('select[multiple]');
+          if (innerSelect && value) {
+            var vals = (value + '').split(',').map(function(v){ return (v || '').trim(); }).filter(Boolean);
+            for (var i = 0; i < innerSelect.options.length; i++) {
+              var opt = innerSelect.options[i];
+              innerSelect.options[i].selected = vals.indexOf(opt.value) >= 0 || vals.indexOf((opt.text || '').trim()) >= 0;
+            }
+            innerSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            innerSelect.dispatchEvent(new Event('input', { bubbles: true }));
+            continue;
+          }
+          var singleSelect = element.querySelector('select:not([multiple])');
+          if (singleSelect && value !== undefined && value !== '') {
+            var sel = singleSelect;
+            var found = false;
+            for (var i = 0; i < sel.options.length; i++) {
+              if (sel.options[i].value === value || sel.options[i].value === String(value)) {
+                sel.selectedIndex = i; found = true; break;
+              }
+            }
+            if (!found) {
+              for (var i = 0; i < sel.options.length; i++) {
+                if ((sel.options[i].text || '').trim() === value) {
+                  sel.selectedIndex = i; break;
+                }
+              }
+            }
+            sel.dispatchEvent(new Event('change', { bubbles: true }));
+            sel.dispatchEvent(new Event('input', { bubbles: true }));
+            continue;
+          }
+          var allInputs = element.querySelectorAll('input:not([type="submit"]):not([type="button"]), textarea');
+          if (allInputs.length > 0 && value !== undefined && value !== '') {
+            for (var ii = 0; ii < allInputs.length; ii++) {
+              setInputValue(allInputs[ii], value);
+            }
+            continue;
+          }
+          var innerInput = element.querySelector('input, textarea, select');
           if (innerInput) element = innerInput;
         }
         
-        // Fill giá trị
         if (element instanceof HTMLInputElement) {
           if (element.type === 'checkbox') {
-            const shouldCheck = value.toLowerCase() === 'true' || value === '1' || value.toLowerCase() === 'on';
+            var shouldCheck = value.toLowerCase() === 'true' || value === '1' || value.toLowerCase() === 'on';
             element.checked = shouldCheck;
-          } else {
-            element.value = value;
-            element.dispatchEvent(new Event('input', { bubbles: true }));
             element.dispatchEvent(new Event('change', { bubbles: true }));
+          } else {
+            setInputValue(element, value);
           }
         } else if (element instanceof HTMLTextAreaElement) {
-          element.value = value;
-          element.dispatchEvent(new Event('input', { bubbles: true }));
+          element.value = (value == null ? '' : value) + '';
+          element.dispatchEvent(new InputEvent('input', { bubbles: true }));
           element.dispatchEvent(new Event('change', { bubbles: true }));
         } else if (element instanceof HTMLSelectElement) {
-          // Tìm option với text matching value
-          for (let i = 0; i < element.options.length; i++) {
-            if (element.options[i].text.trim() === value) {
-              element.selectedIndex = i;
-              break;
+          if (element.multiple && (value + '').indexOf(',') >= 0) {
+            var parts = (value + '').split(',').map(function(v){ return (v || '').trim(); }).filter(Boolean);
+            for (var j = 0; j < element.options.length; j++) {
+              var opt = element.options[j];
+              opt.selected = parts.indexOf(opt.value) >= 0 || parts.indexOf((opt.text || '').trim()) >= 0;
+            }
+          } else {
+            var found = false;
+            for (var i = 0; i < element.options.length; i++) {
+              if (element.options[i].value === value || element.options[i].value === String(value)) {
+                element.selectedIndex = i;
+                found = true;
+                break;
+              }
+            }
+            if (!found) {
+              for (var i = 0; i < element.options.length; i++) {
+                if ((element.options[i].text || '').trim() === value) {
+                  element.selectedIndex = i;
+                  break;
+                }
+              }
             }
           }
           element.dispatchEvent(new Event('change', { bubbles: true }));
+          element.dispatchEvent(new Event('input', { bubbles: true }));
         }
       }
       
@@ -284,7 +994,10 @@ function generateValidationScript(jsonObj: Record<string, string>): string {
       // Validate các giá trị TRƯỚC KHI submit (để đảm bảo form đã được fill đúng)
       const urlBeforeSubmit = window.location.href;
       for (const key of Object.keys(expected)) {
-        const expectedValue = String(expected[key] || '').trim();
+        let expectedValue = getStringValue(expected[key]).trim();
+        if (isDateKey(key) && isIsoDateString(expectedValue)) {
+          expectedValue = isoToDisplayDate(expectedValue);
+        }
         const selector = '#' + key.replace(/[!"#$%&'()*+,.\\/:;<=>?@[\\\\\\]^\\\`{|}~]/g, '\\\\$&');
         let element = document.querySelector(selector);
         
@@ -331,16 +1044,6 @@ function generateValidationScript(jsonObj: Record<string, string>): string {
                 expected: expectedValue,
                 actual: actualValue
               });
-              
-              // Highlight
-              const el = document.getElementById(key);
-              if (el) {
-                el.style.outline = '3px solid red';
-                el.style.background = 'rgba(255,0,0,0.15)';
-                el.style.border = '2px solid red';
-                el.setAttribute('title', \`⚠️ i18n mismatch\\nExpected: "\${expectedValue}"\\nActual: "\${actualValue}"\`);
-                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
             }
             continue;
           } else if (element.type === 'password' && !element.value && expectedValue) {
@@ -352,28 +1055,45 @@ function generateValidationScript(jsonObj: Record<string, string>): string {
         } else if (element instanceof HTMLTextAreaElement) {
           actualValue = (element.value || '').trim();
         } else if (element instanceof HTMLSelectElement) {
-          actualValue = (element.options[element.selectedIndex]?.text || '').trim();
+          if (element.multiple) {
+            var parts = [];
+            for (var p = 0; p < element.options.length; p++) {
+              if (element.options[p].selected) parts.push((element.options[p].value || element.options[p].text || '').trim());
+            }
+            actualValue = parts.filter(Boolean).join(',');
+          } else {
+            actualValue = (element.options[element.selectedIndex]?.value || element.options[element.selectedIndex]?.text || '').trim();
+          }
         } else {
-          actualValue = (element.innerText || element.textContent || '').trim();
+          var innerSel = element.querySelector && element.querySelector('select[multiple]');
+          if (innerSel) {
+            var parts = [];
+            for (var p = 0; p < innerSel.options.length; p++) {
+              if (innerSel.options[p].selected) parts.push((innerSel.options[p].value || innerSel.options[p].text || '').trim());
+            }
+            actualValue = parts.filter(Boolean).join(',');
+          } else {
+            actualValue = (element.innerText || element.textContent || '').trim();
+          }
         }
         
-        if (actualValue !== expectedValue) {
+        var compareExpected = expectedValue;
+        var compareActual = actualValue;
+        if (isDateKey(key)) {
+          compareExpected = normalizeDateForCompare(expectedValue);
+          compareActual = normalizeDateForCompare(actualValue);
+        }
+        if (expectedValue.indexOf(',') >= 0 && actualValue.indexOf(',') >= 0) {
+          compareExpected = expectedValue.split(',').map(function(s){ return (s||'').trim(); }).filter(Boolean).sort().join(',');
+          compareActual = actualValue.split(',').map(function(s){ return (s||'').trim(); }).filter(Boolean).sort().join(',');
+        }
+        if (compareActual !== compareExpected) {
           errors.push({
             key,
             type: 'mismatch',
             expected: expectedValue,
             actual: actualValue
           });
-          
-          // Highlight
-          const el = document.getElementById(key);
-          if (el) {
-            el.style.outline = '3px solid red';
-            el.style.background = 'rgba(255,0,0,0.15)';
-            el.style.border = '2px solid red';
-            el.setAttribute('title', \`⚠️ i18n mismatch\\nExpected: "\${expectedValue}"\\nActual: "\${actualValue}"\`);
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
         }
       }
       
@@ -410,7 +1130,10 @@ function generateValidationScript(jsonObj: Record<string, string>): string {
           // Vẫn ở trang login - validate lại để đảm bảo giá trị vẫn đúng
           // (có thể form không submit được hoặc có lỗi)
           for (const key of Object.keys(expected)) {
-            const expectedValue = String(expected[key] || '').trim();
+            let expectedValue = getStringValue(expected[key]).trim();
+            if (isDateKey(key) && isIsoDateString(expectedValue)) {
+              expectedValue = isoToDisplayDate(expectedValue);
+            }
             const selector = '#' + key.replace(/[!"#$%&'()*+,.\\/:;<=>?@[\\\\\\]^\\\`{|}~]/g, '\\\\$&');
             let element = document.querySelector(selector);
             
@@ -468,13 +1191,39 @@ function generateValidationScript(jsonObj: Record<string, string>): string {
             } else if (element instanceof HTMLTextAreaElement) {
               actualValue = (element.value || '').trim();
             } else if (element instanceof HTMLSelectElement) {
-              actualValue = (element.options[element.selectedIndex]?.text || '').trim();
+              if (element.multiple) {
+                var parts = [];
+                for (var p = 0; p < element.options.length; p++) {
+                  if (element.options[p].selected) parts.push((element.options[p].value || element.options[p].text || '').trim());
+                }
+                actualValue = parts.filter(Boolean).join(',');
+              } else {
+                actualValue = (element.options[element.selectedIndex]?.value || element.options[element.selectedIndex]?.text || '').trim();
+              }
             } else {
-              actualValue = (element.innerText || element.textContent || '').trim();
+              var innerSel = element.querySelector && element.querySelector('select[multiple]');
+              if (innerSel) {
+                var parts = [];
+                for (var p = 0; p < innerSel.options.length; p++) {
+                  if (innerSel.options[p].selected) parts.push((innerSel.options[p].value || innerSel.options[p].text || '').trim());
+                }
+                actualValue = parts.filter(Boolean).join(',');
+              } else {
+                actualValue = (element.innerText || element.textContent || '').trim();
+              }
             }
             
-            if (actualValue !== expectedValue) {
-              // Chỉ thêm lỗi nếu chưa có trong errors
+            var compareExpected = expectedValue;
+            var compareActual = actualValue;
+            if (isDateKey(key)) {
+              compareExpected = normalizeDateForCompare(expectedValue);
+              compareActual = normalizeDateForCompare(actualValue);
+            }
+            if (expectedValue.indexOf(',') >= 0 && actualValue.indexOf(',') >= 0) {
+              compareExpected = expectedValue.split(',').map(function(s){ return (s||'').trim(); }).filter(Boolean).sort().join(',');
+              compareActual = actualValue.split(',').map(function(s){ return (s||'').trim(); }).filter(Boolean).sort().join(',');
+            }
+            if (compareActual !== compareExpected) {
               const existingError = errors.find(e => e.key === key);
               if (!existingError) {
                 errors.push({
@@ -492,78 +1241,7 @@ function generateValidationScript(jsonObj: Record<string, string>): string {
         // (đã validate ở trên)
       }
       
-      // Hiển thị overlay kết quả
-      const existingOverlay = document.getElementById('i18n-validate-overlay');
-      if (existingOverlay) existingOverlay.remove();
-      
-      const overlay = document.createElement('div');
-      overlay.id = 'i18n-validate-overlay';
-      overlay.style.cssText = \`
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: \${errors.length === 0 ? '#28a745' : '#dc3545'};
-        color: white;
-        padding: 16px 24px;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        z-index: 999999;
-        font-family: Arial, sans-serif;
-        font-size: 14px;
-        max-width: 400px;
-        max-height: 80vh;
-        overflow-y: auto;
-      \`;
-      
-      const title = document.createElement('div');
-      title.style.cssText = 'font-weight: bold; font-size: 16px; margin-bottom: 12px;';
-      title.textContent = errors.length === 0 ? '✅ Validation PASSED' : \`❌ Validation FAILED (\${errors.length} errors)\`;
-      overlay.appendChild(title);
-      
-      if (errors.length > 0) {
-        const errorList = document.createElement('div');
-        errorList.style.cssText = 'font-size: 12px; line-height: 1.6;';
-        errors.forEach((err, idx) => {
-          const errDiv = document.createElement('div');
-          errDiv.style.cssText = 'margin-bottom: 8px; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px;';
-          errDiv.innerHTML = \`
-            <strong>\${idx + 1}. \${err.key}</strong><br>
-            <span style="font-size: 11px;">
-              \${err.type === 'missing' ? '⚠️ Element not found' : err.type === 'mismatch' ? '⚠️ Value mismatch' : '⚠️ Error'}<br>
-              \${err.expected ? \`Expected: "\${err.expected}"\` : ''}<br>
-              \${err.actual ? \`Actual: "\${err.actual}"\` : ''}
-            </span>
-          \`;
-          errorList.appendChild(errDiv);
-        });
-        overlay.appendChild(errorList);
-      }
-      
-      const closeBtn = document.createElement('button');
-      closeBtn.textContent = 'Close';
-      closeBtn.style.cssText = \`
-        margin-top: 12px;
-        padding: 8px 16px;
-        background: rgba(255,255,255,0.2);
-        border: 1px solid rgba(255,255,255,0.3);
-        color: white;
-        border-radius: 4px;
-        cursor: pointer;
-        width: 100%;
-      \`;
-      closeBtn.onclick = () => overlay.remove();
-      overlay.appendChild(closeBtn);
-      
-      document.body.appendChild(overlay);
-      
-      // Scroll đến phần tử đầu tiên có lỗi
-      if (errors.length > 0 && errors[0].key) {
-        const firstErrorEl = document.getElementById(errors[0].key);
-        if (firstErrorEl) {
-          firstErrorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }
-      
+      // Không thêm overlay/ký hiệu đỏ trên giao diện test - kết quả chỉ hiển thị trong tool panel
       return { pass: errors.length === 0, errors };
     })()
   `

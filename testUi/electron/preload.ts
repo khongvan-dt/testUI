@@ -24,4 +24,8 @@ contextBridge.exposeInMainWorld('api', {
   validatePage: (url: string, jsonObj: any, browserOpened?: boolean) =>
     ipcRenderer.invoke('validate-page', url, jsonObj, browserOpened),
   openBrowser: (url: string) => ipcRenderer.invoke('open-browser', url),
+  openTestWindow: (loginUrl?: string) => ipcRenderer.invoke('open-test-window', loginUrl),
+  scanCurrentPage: () => ipcRenderer.invoke('scan-current-page'),
+  clickSubmitInTestWindow: () => ipcRenderer.invoke('click-submit-in-test-window'),
+  validateCurrentPage: (jsonObj: any) => ipcRenderer.invoke('validate-current-page', jsonObj),
 })

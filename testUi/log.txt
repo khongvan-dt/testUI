@@ -1,477 +1,255 @@
- testui@0.0.0 dev
-> concurrently "npm run dev:ui" "wait-on http://localhost:5178 && npm run dev:electron"
+<div id="maLP" class="p-select p-component p-inputwrapper p-inputwrapper-filled" data-p="" data-pc-name="dropdown" pc315="" data-pc-section="root"><span class="p-select-label" tabindex="0" role="combobox" aria-label="Đổi vé" aria-haspopup="listbox" aria-expanded="false" aria-controls="maLP_list" aria-disabled="false" data-p="" data-pc-section="label">Đổi vé</span><!----><div class="p-select-dropdown" data-pc-section="dropdown"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="p-icon p-select-dropdown-icon" aria-hidden="true" data-p="" data-pc-section="dropdownicon"><path d="M7.01744 10.398C6.91269 10.3985 6.8089 10.378 6.71215 10.3379C6.61541 10.2977 6.52766 10.2386 6.45405 10.1641L1.13907 4.84913C1.03306 4.69404 0.985221 4.5065 1.00399 4.31958C1.02276 4.13266 1.10693 3.95838 1.24166 3.82747C1.37639 3.69655 1.55301 3.61742 1.74039 3.60402C1.92777 3.59062 2.11386 3.64382 2.26584 3.75424L7.01744 8.47394L11.769 3.75424C11.9189 3.65709 12.097 3.61306 12.2748 3.62921C12.4527 3.64535 12.6199 3.72073 12.7498 3.84328C12.8797 3.96582 12.9647 4.12842 12.9912 4.30502C13.0177 4.48162 12.9841 4.662 12.8958 4.81724L7.58083 10.1322C7.50996 10.2125 7.42344 10.2775 7.32656 10.3232C7.22968 10.3689 7.12449 10.3944 7.01744 10.398Z" fill="currentColor"></path></svg></div><!--teleport start--><!--teleport end--></div>
 
-[0] 
-[0] > testui@0.0.0 dev:ui
-[0] > vite
-[0] 
-[0] The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
-[0] vite v5.4.21 building for development...
-[0] 
-[0] watching for file changes...
-[0] vite v5.4.21 building for development...
-[0]
-[0] watching for file changes...
-[0]
-[0]   VITE v5.4.21  ready in 494 ms
-[0]
-[0]   ➜  Local:   http://localhost:5178/
-[0]   ➜  Network: use --host to expose
-[0] 
-[0] build started...
-[0]
-[0] build started...
-[0] transforming...
-[0] ✓ 1 modules transformed.
-[0] rendering chunks...
-[0] transforming...
-[0] ✓ 1 modules transformed.
-[0] rendering chunks...
-[0] computing gzip size...
-[0] dist-electron/preload.js  0.93 kB │ gzip: 0.32 kB
-[0] built in 212ms.
-[0] computing gzip size...
-[0] dist-electron/main.js  13.02 kB │ gzip: 3.46 kB
-[0] built in 223ms.
-[1] 
-[1] > testui@0.0.0 dev:electron
-[1] > tsc -p electron && electron .
-[1]
-[0] 
-[1] 
-[1] wait-on http://localhost:5178 && npm run dev:electron exited with code 0
-[0]  IPC handler called with URL: http://localhost:5173/auth/login?redirect=/
-[0] Starting scan for URL: http://localhost:5173/auth/login?redirect=/
-[0] Runner path: E:\app tets ui\ui-i18n-tool\testUi\electron\runners\scanPage.cjs
-[0] Runner stderr (info): Starting playwright scan for: http://localhost:5173/auth/login?redirect=/
-[0] Runner stderr (info): Navigating to URL...
-[0] Runner stderr (info): Page loaded, scanning elements...
-[0] Runner stderr (info): Scan complete, found 5 items
-[0] Runner stderr (info): Browser closed
-[0] Runner stderr (info): JSON written to stdout, length: 299
-[0] Runner stdout chunk: [{"id":"app","value":"ĐĂNG NHẬP\nXin chào!\nVui lòng nhập thông tin để đăng nhập vào hệ thống\nNhập
-[0] ✅ Runner exited with code: 0 signal: null
-[0] Runner stdout length: 299
-[0] Runner stderr length: 229
-[0] Runner stderr content: Starting playwright scan for: http://localhost:5173/auth/login?redirect=/
-[0] Navigating to URL...
-[0] Page loaded, scanning elements...
-[0] Scan complete, found 5 items
-[0] Browser closed
-[0] JSON written to stdout, length: 299
-[0]
-[0] Parsing JSON, length: 299
-[0] First 200 chars: [{"id":"app","value":"ĐĂNG NHẬP\nXin chào!\nVui lòng nhập thông tin để đăng nhập vào hệ thống\nNhập mật khẩu\nGhi nhớ đăng nhập\nĐĂNG NHẬP\nQuên mật khẩu?"},{"id":"email","value":"Email"},{"id":"passw
-[0] ✅ Scan successful, found 5 items
-[0] Data type: Array
-[0] First item: {"id":"app","value":"ĐĂNG NHẬP\nXin chào!\nVui lòng nhập thông tin để đăng nhập vào hệ thống\nNhập mật khẩu\nGhi nhớ đăng nhập\nĐĂNG NHẬP\nQuên mật khẩu?"}
-[0] ✅ Resolving with 5 items
-[0]  IPC handler returning result, length: 5
-[0]  IPC handler result type: Array
-[0] First result item: {"id":"app","value":"ĐĂNG NHẬP\nXin chào!\nVui lòng nhập thông tin để đăng nhập vào hệ thống\nNhập mật khẩu\nGhi nhớ đăng nhập\nĐĂNG NHẬP\nQuên mật khẩu?"}
-[0] 📥 IPC handler validate-page called with URL: http://localhost:5173/auth/login?redirect=/
-[0] JSON object: {"email":"admin","password":"adminBhl12345","rememberMe":"true"}
-[0] Browser already opened: false
-[0] 📌 Starting validate for URL: http://localhost:5173/auth/login?redirect=/
-[0] 📌 Runner path: E:\app tets ui\ui-i18n-tool\testUi\electron\runners\validatePage.cjs
-[0] 📌 JSON length: 64
-[0] ✅ JSON written to temp file: C:\Users\DELLPR~1\AppData\Local\Temp\validate-1769509934956-u5qwpei62t.json
-[0] ✅ Temp file size: 64 bytes
-[0] ✅ Process spawned, PID: 34660
-[0] Runner stderr: === validatePage.cjs started ===
-[0]
-[0] Runner stderr: Process args: [
-[0]   'E:\\app tets ui\\ui-i18n-tool\\testUi\\node_modules\\electron\\dist\\electron.exe',
-[0]   'E:\\app tets ui\\ui-i18n-tool\\testUi\\electron\\runners\\validatePage.cjs',
-[0]   'http://localhost:5173/auth/login?redirect=/',
-[0]   'C:\\Users\\DELLPR~1\\AppData\\Local\\Temp\\validate-1769509934956-u5qwpei62t.json',
-[0]   'new'
-[0] ]
-[0]
-[0] Runner stderr: Working directory: E:\app tets ui\ui-i18n-tool
-[0] Node version: v20.16.0
-[0] Platform: win32
-[0] URL: http://localhost:5173/auth/login?redirect=/
-[0] JSON file path: C:\Users\DELLPR~1\AppData\Local\Temp\validate-1769509934956-u5qwpei62t.json
-[0] Reuse mode: create new tab
-[0]
-[0] Runner stderr: JSON read from file, length: 64
-[0]
-[0] Runner stderr: Starting playwright validate for: http://localhost:5173/auth/login?redirect=/
-[0] JSON length: 64
-[0] 🔍 DEBUG: Parsed JSON: {
-[0]   "email": "admin",
-[0]   "password": "adminBhl12345",
-[0]   "rememberMe": "true"
-[0] }
-[0] Expected keys: 3
-[0]
-[0] Runner stderr:   🔍 DEBUG: JSON key="email", value="admin"
-[0]   🔍 DEBUG: JSON key="password", value="adminBhl12345"
-[0]   🔍 DEBUG: JSON key="rememberMe", value="true"
-[0] Launching browser...
-[0]
-[0] Runner stderr: ✅ Browser launched/reused successfully with persistent context
-[0] Browser user data dir: C:\Users\DELLPR~1\AppData\Local\Temp\ui-i18n-tool-browser
-[0] Existing pages: 1
-[0]
-[0] Runner stderr: ✅ Browser window should be visible now
-[0]
-[0] Runner stderr: ℹ️ Previous tabs (if any) will stay open - new tab will be created for this test
-[0] Existing pages in context: 1
-[0]
-[0] Runner stderr: ✅ New page/tab created
-[0] Total pages in context: 2
-[0]
-[0] Runner stderr: ✅ New tab brought to front
-[0]
-[0] Runner stderr: Browser is connected: true
-[0] Browser context count: 1
-[0]
-[0] Runner stderr: ✅ Page viewport set, browser window should be visible
-[0] Navigating to URL...
-[0]
-[0] Runner stderr: ✅ Cookies cleared
-[0]
-[0] Runner stderr: Page loaded and tab focused
-[0]
-[0] Runner stderr: Current page URL: http://localhost:5173/auth/login?redirect=/
-[0]
-[0] Runner stderr: Current tab is active: true
-[0] Clearing all form inputs before filling new data...
-[0]
-[0] Runner stderr: ✅ All form inputs cleared
-[0]
-[0] Runner stderr: Auto-filling form inputs with new JSON data...
-[0]   🔍 DEBUG: Processing key="email", rawValue="admin", value="admin"
-[0]
-[0] Runner stderr:   🔍 DEBUG: Looking for element with selector: #email
-[0]
-[0] Runner stderr:   ✅ Element #email found with id selector
-[0]
-[0] Runner stderr:   🔍 DEBUG: About to fill input #email with value="admin"
-[0]   🔍 DEBUG: Element type: text, isInput: true, isTextarea: false
-[0]
-[0] Runner stderr:   🔍 DEBUG: Element state: {"disabled":false,"readonly":false,"hidden":false,"display":"inline-block","visibility":"visible"}
-[0]
-[0] Runner stderr:   🔍 DEBUG: Cleared input #email
-[0]   🔍 DEBUG: Filling with value="admin" (type: string)
-[0]
-[0] Runner stderr:   🔍 DEBUG: Fill command executed
-[0]
-[0] Runner stderr:   🔍 DEBUG: After fill, input value="admin" (length: 5)
-[0]   ✅ Value matches expected
-[0]
-[0] Runner stderr:   🔍 DEBUG: Dispatched input and change events
-[0]   ✅ Filled input #email with: admin
-[0]   🔍 DEBUG: Processing key="password", rawValue="adminBhl12345", value="adminBhl12345"
-[0]   🔍 DEBUG: Looking for element with selector: #password
-[0]
-[0] Runner stderr:   ✅ Element #password found with id selector
-[0]
-[0] Runner stderr:   🔍 DEBUG: Element #password is a wrapper (DIV), looking for input inside...
-[0]
-[0] Runner stderr:   ✅ Found input inside wrapper with selector: #password input
-[0]
-[0] Runner stderr:   🔍 DEBUG: About to fill input #password with value="adminBhl12345"
-[0]   🔍 DEBUG: Element type: password, isInput: true, isTextarea: false
-[0]
-[0] Runner stderr:   🔍 DEBUG: Element state: {"disabled":false,"readonly":false,"hidden":false,"display":"block","visibility":"visible"}
-[0]
-[0] Runner stderr:   🔍 DEBUG: Cleared input #password
-[0]   🔍 DEBUG: Filling with value="adminBhl12345" (type: string)
-[0]
-[0] Runner stderr:   🔍 DEBUG: Fill command executed
-[0]
-[0] Runner stderr:   🔍 DEBUG: After fill, input value="adminBhl12345" (length: 13)
-[0]   ✅ Value matches expected
-[0]
-[0] Runner stderr:   🔍 DEBUG: Dispatched input and change events
-[0]
-[0] Runner stderr:   ✅ Filled input #password with: adminBhl12345
-[0]   🔍 DEBUG: Processing key="rememberMe", rawValue="true", value="true"
-[0]   🔍 DEBUG: Looking for element with selector: #rememberMe
-[0]
-[0] Runner stderr:   ✅ Element #rememberMe found with id selector
-[0]
-[0] Runner stderr:   ✅ Checked checkbox #rememberMe
-[0] Verifying all filled values before submit...
-[0]
-[0] Runner stderr:   ✅ Verified #email value matches: "admin"
-[0]
-[0] Runner stderr:   ✅ Verified #password value matches: "adminBhl12345"
-[0]
-[0] Runner stderr:   ⚠️ WARNING: #rememberMe value mismatch before submit! Expected="true", Got="on"
-[0]
-[0] Runner stderr:   ⚠️ Error refilling #rememberMe: page.fill: Error: Input of type "checkbox" cannot be filled
-[0] Call log:
-[0]   - waiting for locator('#rememberMe')
-[0]     - locator resolved to <input checked id="rememberMe" type="checkbox" data-pc-section="input" class="p-checkbox-input"/>
-[0]     - fill("")
-[0]   - attempting fill action
-[0]     - waiting for element to be visible, enabled and editable
-[0]
-[0] Looking for submit button...
-[0]
-[0] Runner stderr:   ✅ Found submit button: button[type="submit"]
-[0]
-[0] Runner stderr:   ✅ Form submitted!
-[0]
-[0] Runner stderr:   ⏳ Waiting for page to load after submit...
-[0]
-[0] Runner stderr:   ✅ Page ready after submit
-[0]   🔍 DEBUG: URL before submit: http://localhost:5173/auth/login?redirect=/, after submit: http://localhost:5173/auth/login?redirect=/
-[0]   ⚠️ URL did not change or still on login page - checking for API errors...
-[0]
-[0] Runner stderr:   🔍 Checking for API error messages...
-[0]
-[0] Runner stderr:   ✅ No API error messages found
-[0]
-[0] Runner stderr: Starting validation...
-[0] Validating key: email
-[0]
-[0] Runner stderr:   🔍 DEBUG: Validating #email, expected="admin", actual="admin"
-[0]   🔍 DEBUG: Element type: text, isPassword: false
-[0] Validating key: password
-[0]
-[0] Runner stderr:   🔍 DEBUG: Element #password is a wrapper (DIV), looking for input inside...
-[0]
-[0] Runner stderr:   ✅ Found input inside wrapper with selector: #password input
-[0]
-[0] Runner stderr:   🔍 DEBUG: Validating #password, expected="adminBhl12345", actual="adminBhl12345"
-[0]   🔍 DEBUG: Element type: password, isPassword: true
-[0] Validating key: rememberMe
-[0]
-[0] Runner stderr: Validation complete, errors: 0
-[0]
-[0] ✅ Got result from stdout, resolving immediately (process will continue in background)
-[0] ✅ IPC handler validate-page returning result: { pass: true, errors: [] }
-[0] Runner stderr: JSON written to stdout, length: 25
-[0]
-[0] Runner stderr: ✅ Browser is open! You can see:
-[0]    - Validation overlay (top-right corner)
-[0]
-[0] Runner stderr:    - Highlighted error elements (red outline)
-[0]    - Browser will stay open until you close it manually
-[0]    - Process will keep running in background to maintain browser
-[0]    - You can test again - previous browser will stay open, new one will open
-[0] ⏳ Process will keep running to maintain browser open...
-[0] ⏳ You can test again - browser will stay open
-[0] ⏳ Close browser manually when done testing
-[0]
-[0] 📥 IPC handler validate-page called with URL: http://localhost:5173/auth/login?redirect=/
-[0] JSON object: {"email":"admin","password":"adminBhl12345!","rememberMe":"true"}
-[0] Browser already opened: true
-[0] 📌 Starting validate for URL: http://localhost:5173/auth/login?redirect=/
-[0] 📌 Runner path: E:\app tets ui\ui-i18n-tool\testUi\electron\runners\validatePage.cjs
-[0] 📌 JSON length: 65
-[0] ✅ JSON written to temp file: C:\Users\DELLPR~1\AppData\Local\Temp\validate-1769509950424-918z6x3bzb.json
-[0] ✅ Temp file size: 65 bytes
-[0] ✅ Process spawned, PID: 36920
-[0] Runner stderr: === validatePage.cjs started ===
-[0]
-[0] Runner stderr: Process args: [
-[0]   'E:\\app tets ui\\ui-i18n-tool\\testUi\\node_modules\\electron\\dist\\electron.exe',
-[0]   'E:\\app tets ui\\ui-i18n-tool\\testUi\\electron\\runners\\validatePage.cjs',
-[0]   'http://localhost:5173/auth/login?redirect=/',
-[0]   'C:\\Users\\DELLPR~1\\AppData\\Local\\Temp\\validate-1769509950424-918z6x3bzb.json',
-[0]   'reuse'
-[0] ]
-[0]
-[0] Runner stderr: Working directory: E:\app tets ui\ui-i18n-tool
-[0] Node version: v20.16.0
-[0] Platform: win32
-[0] URL: http://localhost:5173/auth/login?redirect=/
-[0] JSON file path: C:\Users\DELLPR~1\AppData\Local\Temp\validate-1769509950424-918z6x3bzb.json
-[0] Reuse mode: reuse existing tab
-[0]
-[0] Runner stderr: JSON read from file, length: 65
-[0]
-[0] Runner stderr: Starting playwright validate for: http://localhost:5173/auth/login?redirect=/
-[0] JSON length: 65
-[0]
-[0] Runner stderr: 🔍 DEBUG: Parsed JSON: {
-[0]   "email": "admin",
-[0]   "password": "adminBhl12345!",
-[0]   "rememberMe": "true"
-[0] }
-[0] Expected keys: 3
-[0]   🔍 DEBUG: JSON key="email", value="admin"
-[0]   🔍 DEBUG: JSON key="password", value="adminBhl12345!"
-[0]   🔍 DEBUG: JSON key="rememberMe", value="true"
-[0] Launching browser...
-[0]
-[0] Runner stderr: ❌ Failed to launch browser in non-headless mode: browserType.launchPersistentContext: Target page, context or browser has been closed
-[0] Browser logs:
-[0]
-[0] <launching> C:\Users\DELL PREC 5560\AppData\Local\ms-playwright\chromium-1200\chrome-win64\chrome.exe --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-extensions --disable-features=AcceptCHFrame,AvoidUnnecessaryBeforeUnloadCheckSync,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --enable-automation --disable-infobars --disable-search-engine-choice-screen --disable-sync --no-sandbox --no-sandbox --disable-setuid-sandbox --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --start-maximized --window-position=0,0 --disable-infobars --disable-dev-shm-usage --user-data-dir=C:\Users\DELLPR~1\AppData\Local\Temp\ui-i18n-tool-browser --remote-debugging-pipe about:blank
-[0] <launched> pid=37596
-[0] Call log:
-[0]   - <launching> C:\Users\DELL PREC 5560\AppData\Local\ms-playwright\chromium-1200\chrome-win64\chrome.exe --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-extensions --disable-features=AcceptCHFrame,AvoidUnnecessaryBeforeUnloadCheckSync,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --enable-automation --disable-infobars --disable-search-engine-choice-screen --disable-sync --no-sandbox --no-sandbox --disable-setuid-sandbox --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --start-maximized --window-position=0,0 --disable-infobars --disable-dev-shm-usage --user-data-dir=C:\Users\DELLPR~1\AppData\Local\Temp\ui-i18n-tool-browser --remote-debugging-pipe about:blank
-[0]   - <launched> pid=37596
-[0]   - [pid=37596] <gracefully close start>
-[0]   - [pid=37596] <kill>
-[0]   - [pid=37596] <will force kill>
-[0]   - [pid=37596] taskkill stderr: ERROR: The process "37596" not found.
-[0]   - [pid=37596] <process did exit: exitCode=21, signal=null>
-[0]   - [pid=37596] starting temporary directories cleanup
-[0]   - [pid=37596] finished temporary directories cleanup
-[0]   - [pid=37596] <gracefully close end>
-[0]
-[0] Error stack: browserType.launchPersistentContext: Target page, context or browser has been closed
-[0] Browser logs:
-[0]
-[0] <launching> C:\Users\DELL PREC 5560\AppData\Local\ms-playwright\chromium-1200\chrome-win64\chrome.exe --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-extensions --disable-features=AcceptCHFrame,AvoidUnnecessaryBeforeUnloadCheckSync,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --enable-automation --disable-infobars --disable-search-engine-choice-screen --disable-sync --no-sandbox --no-sandbox --disable-setuid-sandbox --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --start-maximized --window-position=0,0 --disable-infobars --disable-dev-shm-usage --user-data-dir=C:\Users\DELLPR~1\AppData\Local\Temp\ui-i18n-tool-browser --remote-debugging-pipe about:blank
-[0] <launched> pid=37596
-[0] Call log:
-[0]   - <launching> C:\Users\DELL PREC 5560\AppData\Local\ms-playwright\chromium-1200\chrome-win64\chrome.exe --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-extensions --disable-features=AcceptCHFrame,AvoidUnnecessaryBeforeUnloadCheckSync,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --enable-automation --disable-infobars --disable-search-engine-choice-screen --disable-sync --no-sandbox --no-sandbox --disable-setuid-sandbox --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --start-maximized --window-position=0,0 --disable-infobars --disable-dev-shm-usage --user-data-dir=C:\Users\DELLPR~1\AppData\Local\Temp\ui-i18n-tool-browser --remote-debugging-pipe about:blank
-[0]   - <launched> pid=37596
-[0]   - [pid=37596] <gracefully close start>
-[0]   - [pid=37596] <kill>
-[0]   - [pid=37596] <will force kill>
-[0]   - [pid=37596] taskkill stderr: ERROR: The process "37596" not found.
-[0]   - [pid=37596] <process did exit: exitCode=21, signal=null>
-[0]   - [pid=37596] starting temporary directories cleanup
-[0]   - [pid=37596] finished temporary directories cleanup
-[0]   - [pid=37596] <gracefully close end>
-[0]
-[0]     at async main (E:\app tets ui\ui-i18n-tool\testUi\electron\runners\validatePage.cjs:107:17)
-[0]
-[0] Runner stderr: ⚠️ This should not happen - browser should be visible!
-[0] Falling back to headless mode (browser will NOT be visible)...
-[0]
-[0] Runner stderr: ⚠️ Browser launched in HEADLESS mode - browser window will NOT be visible!
-[0] ⚠️ This is a fallback - you should see the browser window normally
-[0]
-[0] Runner stderr: ✅ New page created
-[0]
-[0] Runner stderr: Browser is connected: true
-[0] Browser context count: 1
-[0]
-[0] Runner stderr: ✅ Page viewport set, browser window should be visible
-[0] Navigating to URL...
-[0]
-[0] Runner stderr: Page loaded and tab focused
-[0] Current page URL: http://localhost:5173/auth/login?redirect=/
-[0]
-[0] Runner stderr: Current tab is active: true
-[0] Clearing all form inputs before filling new data...
-[0]
-[0] Runner stderr: ✅ All form inputs cleared
-[0]
-[0] Runner stderr: Auto-filling form inputs with new JSON data...
-[0]   🔍 DEBUG: Processing key="email", rawValue="admin", value="admin"
-[0]
-[0] Runner stderr:   🔍 DEBUG: Looking for element with selector: #email
-[0]
-[0] Runner stderr:   ✅ Element #email found with id selector
-[0]
-[0] Runner stderr:   🔍 DEBUG: About to fill input #email with value="admin"
-[0]   🔍 DEBUG: Element type: text, isInput: true, isTextarea: false
-[0]
-[0] Runner stderr:   🔍 DEBUG: Element state: {"disabled":false,"readonly":false,"hidden":false,"display":"inline-block","visibility":"visible"}
-[0]
-[0] Runner stderr:   🔍 DEBUG: Cleared input #email
-[0]   🔍 DEBUG: Filling with value="admin" (type: string)
-[0]
-[0] Runner stderr:   🔍 DEBUG: Fill command executed
-[0]
-[0] Runner stderr:   🔍 DEBUG: After fill, input value="admin" (length: 5)
-[0]   ✅ Value matches expected
-[0]
-[0] Runner stderr:   🔍 DEBUG: Dispatched input and change events
-[0]   ✅ Filled input #email with: admin
-[0]
-[0] Runner stderr:   🔍 DEBUG: Processing key="password", rawValue="adminBhl12345!", value="adminBhl12345!"
-[0]   🔍 DEBUG: Looking for element with selector: #password
-[0]
-[0] Runner stderr:   ✅ Element #password found with id selector
-[0]
-[0] Runner stderr:   🔍 DEBUG: Element #password is a wrapper (DIV), looking for input inside...
-[0]
-[0] Runner stderr:   ✅ Found input inside wrapper with selector: #password input
-[0]
-[0] Runner stderr:   🔍 DEBUG: About to fill input #password with value="adminBhl12345!"
-[0]   🔍 DEBUG: Element type: password, isInput: true, isTextarea: false
-[0]
-[0] Runner stderr:   🔍 DEBUG: Element state: {"disabled":false,"readonly":false,"hidden":false,"display":"block","visibility":"visible"}
-[0]
-[0] Runner stderr:   🔍 DEBUG: Cleared input #password
-[0]   🔍 DEBUG: Filling with value="adminBhl12345!" (type: string)
-[0]
-[0] Runner stderr:   🔍 DEBUG: Fill command executed
-[0]
-[0] Runner stderr:   🔍 DEBUG: After fill, input value="adminBhl12345!" (length: 14)
-[0]   ✅ Value matches expected
-[0]
-[0] Runner stderr:   🔍 DEBUG: Dispatched input and change events
-[0]   ✅ Filled input #password with: adminBhl12345!
-[0]   🔍 DEBUG: Processing key="rememberMe", rawValue="true", value="true"
-[0]   🔍 DEBUG: Looking for element with selector: #rememberMe
-[0]
-[0] Runner stderr:   ✅ Element #rememberMe found with id selector
-[0]
-[0] Runner stderr:   ✅ Checked checkbox #rememberMe
-[0] Verifying all filled values before submit...
-[0]
-[0] Runner stderr:   ✅ Verified #email value matches: "admin"
-[0]
-[0] Runner stderr:   ✅ Verified #password value matches: "adminBhl12345!"
-[0]
-[0] Runner stderr:   ⚠️ WARNING: #rememberMe value mismatch before submit! Expected="true", Got="on"
-[0]
-[0] Runner stderr:   ⚠️ Error refilling #rememberMe: page.fill: Error: Input of type "checkbox" cannot be filled
-[0] Call log:
-[0]   - waiting for locator('#rememberMe')
-[0]     - locator resolved to <input checked id="rememberMe" type="checkbox" data-pc-section="input" class="p-checkbox-input"/>
-[0]     - fill("")
-[0]   - attempting fill action
-[0]     - waiting for element to be visible, enabled and editable
-[0]
-[0] Looking for submit button...
-[0]
-[0] Runner stderr:   ✅ Found submit button: button[type="submit"]
-[0]
-[0] Runner stderr:   ✅ Form submitted!
-[0]
-[0] Runner stderr:   ⏳ Waiting for page to load after submit...
-[0]
-[0] Runner stderr:   ✅ Page ready after submit
-[0]   🔍 DEBUG: URL before submit: http://localhost:5173/auth/login?redirect=/, after submit: http://localhost:5173/auth/login?redirect=/
-[0]   ⚠️ URL did not change or still on login page - checking for API errors...
-[0]
-[0] Runner stderr:   🔍 Checking for API error messages...
-[0]
-[0] Runner stderr:   ✅ No API error messages found
-[0]
-[0] Runner stderr: Starting validation...
-[0] Validating key: email
-[0]
-[0] Runner stderr:   🔍 DEBUG: Validating #email, expected="admin", actual="admin"
-[0]   🔍 DEBUG: Element type: text, isPassword: false
-[0] Validating key: password
-[0]
-[0] Runner stderr:   🔍 DEBUG: Element #password is a wrapper (DIV), looking for input inside...
-[0]
-[0] Runner stderr:   ✅ Found input inside wrapper with selector: #password input
-[0]
-[0] Runner stderr:   🔍 DEBUG: Validating #password, expected="adminBhl12345!", actual="adminBhl12345!"
-[0]   🔍 DEBUG: Element type: password, isPassword: true
-[0] Validating key: rememberMe
-[0]
-[0] Runner stderr: Validation complete, errors: 0
-[0]
-[0] ✅ Got result from stdout, resolving immediately (process will continue in background)
-[0] ✅ IPC handler validate-page returning result: { pass: true, errors: [] }
-[0] Runner stderr: JSON written to stdout, length: 25
-[0]
-[0] Runner stderr: Headless mode: Closing browser...
-[0]
-[0] Runner stderr: Browser closed successfully
-[0] Note: Browser was in headless mode. Please open the URL manually to view the page.
-[0]
-[0] Process closed (result already resolved from stdout)
+
+
+-----------------------------------------------------------------------------------
 
 
 
 
+
+
+<div id="maLP" class="p-select p-component p-inputwrapper p-inputwrapper-filled" data-p="" data-pc-name="dropdown" pc315="" data-pc-section="root"><span class="p-select-label" tabindex="0" role="combobox" aria-label="Trả thường" aria-haspopup="listbox" aria-expanded="false" aria-controls="maLP_list" aria-disabled="false" data-p="" data-pc-section="label">Trả thường</span><!----><div class="p-select-dropdown" data-pc-section="dropdown"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="p-icon p-select-dropdown-icon" aria-hidden="true" data-p="" data-pc-section="dropdownicon"><path d="M7.01744 10.398C6.91269 10.3985 6.8089 10.378 6.71215 10.3379C6.61541 10.2977 6.52766 10.2386 6.45405 10.1641L1.13907 4.84913C1.03306 4.69404 0.985221 4.5065 1.00399 4.31958C1.02276 4.13266 1.10693 3.95838 1.24166 3.82747C1.37639 3.69655 1.55301 3.61742 1.74039 3.60402C1.92777 3.59062 2.11386 3.64382 2.26584 3.75424L7.01744 8.47394L11.769 3.75424C11.9189 3.65709 12.097 3.61306 12.2748 3.62921C12.4527 3.64535 12.6199 3.72073 12.7498 3.84328C12.8797 3.96582 12.9647 4.12842 12.9912 4.30502C13.0177 4.48162 12.9841 4.662 12.8958 4.81724L7.58083 10.1322C7.50996 10.2125 7.42344 10.2775 7.32656 10.3232C7.22968 10.3689 7.12449 10.3944 7.01744 10.398Z" fill="currentColor"></path></svg></div><!--teleport start--><!--teleport end--></div>
+
+
+
+2 html này khác nhau ở đâu
+
+Hai đoạn HTML này gần như giống hệt nhau, khác nhau chỉ ở nội dung text và aria-label thôi. Mình chỉ ra chính xác từng điểm khác nhé 👇
+
+✅ Điểm KHÁC nhau
+1️⃣ Text hiển thị trong dropdown
+<span class="p-select-label">Đổi vé</span>
+
+
+vs
+
+<span class="p-select-label">Trả thường</span>
+
+
+👉 Giá trị được chọn khác nhau
+
+Cái 1: Đổi vé
+
+Cái 2: Trả thường
+
+2️⃣ aria-label
+aria-label="Đổi vé"
+
+
+vs
+
+aria-label="Trả thường"
+
+
+👉 Phục vụ accessibility / automation test
+
+Screen reader
+
+Tool test (Playwright, Selenium có thể dùng)
+
+❌ Những thứ KHÔNG khác
+
+Các phần sau 100% giống nhau:
+
+id="maLP" ⚠️ (cái này còn là vấn đề, nói dưới)
+
+class
+
+structure DOM
+
+svg icon
+
+aria-expanded
+
+aria-controls
+
+data-p*, data-pc*
+
+⚠️ Vấn đề nghiêm trọng (rất quan trọng cho tester & dev)
+❌ Trùng id="maLP"
+
+HTML chuẩn: id phải là duy nhất
+
+Ở đây:
+
+<div id="maLP" ...>
+
+
+👉 Nếu cùng tồn tại trên 1 page:
+
+document.getElementById("maLP") → chỉ lấy cái đầu
+
+Automation test dễ click nhầm
+
+Bug khó debug
+
+🎯 Kết luận ngắn gọn
+Tiêu chí	Khác
+Text hiển thị	✅
+aria-label	✅
+Cấu trúc DOM	❌
+Class	❌
+ID	❌ (nhưng đây là lỗi thiết kế)
+🧪 Gợi ý cho tool hỗ trợ test UI (liên quan idea bạn hỏi lúc nãy)
+
+Từ case này, tool của bạn có thể:
+
+✅ Detect:
+
+Component khác state/value nhưng DOM y chang
+
+Trùng ID
+
+Text thay đổi nhưng selector không đổi
+
+✅ Sinh test case:
+
+“Verify dropdown maLP hiển thị đúng giá trị theo loại vé”
+
+Nếu bạn muốn, mình có thể:
+
+Viết Playwright selector chuẩn cho dropdown PrimeVue này
+
+Hoặc giúp bạn thiết kế rule detect DOM diff cho tool test UI bạn đang ấp ủ 👀
+
+tôi đang dùng primvue 
+đây là html được build ra 
+sao lại k có value của item dropdow
+
+Câu này đúng “trúng tim đen” của PrimeVue luôn 😄
+Ngắn gọn trước, rồi mình giải thích sâu nhé.
+
+TL;DR
+
+👉 PrimeVue Dropdown KHÔNG render value của option ra HTML
+Nó chỉ render label đang được chọn + state nội bộ trong JS.
+
+Đó là thiết kế có chủ ý, không phải bug.
+
+Vì sao trong HTML không có value? 🤔
+
+PrimeVue (và nhiều UI lib hiện đại) hoạt động như sau:
+
+1️⃣ value tồn tại trong Vue state, không phải DOM
+
+Ví dụ code:
+
+<Dropdown
+  v-model="maLP"
+  :options="loaiPhieu"
+  optionLabel="ten"
+  optionValue="ma"
+/>
+
+
+maLP (ví dụ: "DOI_VE")
+👉 chỉ nằm trong JS memory
+
+DOM chỉ hiển thị:
+
+<span class="p-select-label">Đổi vé</span>
+
+
+👉 HTML chỉ phản ánh UI, không phản ánh data model
+
+2️⃣ Dropdown của PrimeVue là custom component
+
+Nó không phải:
+
+<select>
+  <option value="A">...</option>
+</select>
+
+
+Mà là:
+
+div + span
+
+listbox render bằng teleport khi mở dropdown
+
+Option tồn tại tạm thời, không gắn value cố định
+
+Vậy value thật nằm ở đâu? 🧠
+📍 1. Trong Vue reactive state
+maLP.value === 'DOI_VE'
+
+📍 2. Khi mở dropdown (teleport)
+
+Lúc mở, bạn sẽ thấy:
+
+<li role="option" data-p-value="DOI_VE">Đổi vé</li>
+
+
+👉 data-p-value chỉ tồn tại khi dropdown mở
+
+Tại sao PrimeVue làm vậy? (lý do kỹ thuật)
+
+✅ Performance tốt hơn
+✅ Không expose business value ra DOM (security nhẹ)
+✅ Hỗ trợ object phức tạp làm value
+✅ Dễ virtual scroll, filter, lazy load
+
+Tester / Automation test phải làm sao? 🧪
+❌ KHÔNG nên
+expect(element.value).toBe(...)
+
+
+(vì không có)
+
+✅ Cách ĐÚNG (Playwright / Selenium)
+1️⃣ Test theo label
+await expect(page.locator('#maLP .p-select-label'))
+  .toHaveText('Đổi vé');
+
+2️⃣ Test theo aria-label
+await expect(page.locator('#maLP [role="combobox"]'))
+  .toHaveAttribute('aria-label', 'Đổi vé');
+
+3️⃣ Mở dropdown → lấy data-p-value
+await page.click('#maLP');
+await page.click('li[data-p-value="DOI_VE"]');
+
+Nếu bạn MUỐN có value trong DOM (chủ động thiết kế)
+Cách 1️⃣ Gắn custom attribute
+<Dropdown
+  v-model="maLP"
+  :options="loaiPhieu"
+  data-testid="dropdown-maLP"
+/>
+
+
+Hoặc:
+
+<div :data-value="maLP">
+  <Dropdown ... />
+</div>
+
+Cách 2️⃣ Dành riêng cho test (best practice)
+<Dropdown
+  v-model="maLP"
+  :options="loaiPhieu"
+  optionLabel="ten"
+  optionValue="ma"
+  :pt="{
+    root: { 'data-testid': 'maLP' }
+  }"
+/>
+
+🔥 Insight cho dự án tool test UI của bạn
+
+Từ case này, tool có thể:
+
+Detect component controlled by JS state
+
+Cảnh báo: “Không nên assert bằng DOM value”
+
+Gợi ý selector:
+
+aria-label
+
+role
+
+data-testid
+
+👉 Cái này tester rất hay bị sai

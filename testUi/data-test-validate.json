@@ -1,0 +1,20 @@
+{
+  "tenTraVe": "Trả vé theo ngày tự chọn",
+  "listMacTau": "SE1,SE2,SE8",
+  "ngayApDungTu": "13/06/2025",
+  "ngayApDungDen": "31/12/2025",
+  "ngayBanTu": "13/06/2025",
+  "ngayBanDen": "31/12/2025",
+  "status": "1",
+  "soCongVan": "gg",
+  "tenMoTaTraVe": "trả thường 2",
+  "maLP": "1",
+  "ngayDiTu": "18/06/2025",
+  "ngayDiDen": "27/11/2025",
+  "listLoaiCho": "SlaAnLT1,SlaAnLT2",
+  "traTruocTuSoPhut": "0",
+  "traTruocDenSoPhut": "2880",
+  "tyLeTraVe": "0",
+  "camTraVe": "false",
+  "camDoiVe": "false"
+}

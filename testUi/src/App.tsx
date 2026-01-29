@@ -1,7 +1,15 @@
 import { useMemo, useState, useEffect } from 'react'
 import './App.css'
 
-type Item = { id: string; value: string }
+type Item = { 
+  id: string
+  value: string
+  level?: number
+  path?: string
+  parentId?: string | null
+  arrayIndex?: number
+  isArrayContainer?: boolean
+}
 type ValidateResult = {
   pass: boolean
   errors: Array<{
@@ -22,13 +30,205 @@ export default function App() {
   const [jsonError, setJsonError] = useState<string | null>(null)
   const [validateResult, setValidateResult] = useState<ValidateResult>(null)
   const [browserOpened, setBrowserOpened] = useState(false)
+  const [testWindowOpened, setTestWindowOpened] = useState(false)
+  const [loginUrl, setLoginUrl] = useState('')
 
+  // Generate nested JSON structure từ selected items - đơn giản hóa dựa trên path và arrayIndex
   const selectedJson = useMemo(() => {
-    const obj: Record<string, string> = {}
-    for (const it of items) {
-      if (selected[it.id]) obj[it.id] = it.value
+    const nestedObj: any = {}
+    const itemMap = new Map<string, Item>()
+    
+    // Tạo map để dễ lookup
+    items.forEach(it => {
+      if (selected[it.id]) {
+        itemMap.set(it.id, it)
+      }
+    })
+    
+    // Helper: Set value vào nested object tại path cụ thể
+    function setValue(obj: any, path: string[], arrayIndex: number | undefined, value: any, isArrayContainer: boolean) {
+      let current = obj
+      
+      // Navigate đến vị trí trước item cuối cùng
+      for (let i = 0; i < path.length - 1; i++) {
+        const key = path[i]
+        const nextKey = path[i + 1]
+        const pathItem = itemMap.get(key)
+        
+        if (!current[key]) {
+          current[key] = pathItem?.isArrayContainer ? [] : {}
+        }
+        
+        // Nếu key tiếp theo có arrayIndex, cần xử lý array
+        const nextItem = itemMap.get(nextKey)
+        if (nextItem && nextItem.arrayIndex !== undefined && pathItem?.isArrayContainer) {
+          // Convert thành array nếu chưa phải
+          if (!Array.isArray(current[key])) {
+            current[key] = []
+          }
+          // Đảm bảo array đủ lớn
+          while (current[key].length <= nextItem.arrayIndex) {
+            current[key].push({})
+          }
+          current = current[key][nextItem.arrayIndex]
+        } else {
+          current = current[key]
+        }
+      }
+      
+      // Set value cho item cuối cùng
+      const lastKey = path[path.length - 1]
+      if (arrayIndex !== undefined) {
+        // Item nằm trong array
+        const parentKey = path[path.length - 2]
+        if (parentKey && current[parentKey] && Array.isArray(current[parentKey])) {
+          // Parent đã là array
+          while (current[parentKey].length <= arrayIndex) {
+            current[parentKey].push({})
+          }
+          if (isArrayContainer) {
+            current[parentKey][arrayIndex][lastKey] = []
+          } else {
+            current[parentKey][arrayIndex][lastKey] = value
+          }
+        } else {
+          // Cần tạo array cho parent
+          if (!current[lastKey] || !Array.isArray(current[lastKey])) {
+            current[lastKey] = []
+          }
+          while (current[lastKey].length <= arrayIndex) {
+            current[lastKey].push({})
+          }
+          // Không set value ở đây vì đây là container
+        }
+      } else {
+        // Item không trong array
+        if (isArrayContainer) {
+          current[lastKey] = []
+        } else {
+          current[lastKey] = value
+        }
+      }
     }
-    return obj
+    
+    // Sắp xếp items theo level để xử lý từ root xuống
+    const sortedItems = Array.from(itemMap.values()).sort((a, b) => {
+      const levelA = a.level || 0
+      const levelB = b.level || 0
+      if (levelA !== levelB) return levelA - levelB
+      // Nếu cùng level, sắp xếp theo arrayIndex để các item cùng index được xử lý cùng nhau
+      const indexA = a.arrayIndex ?? -1
+      const indexB = b.arrayIndex ?? -1
+      if (indexA !== indexB) return indexA - indexB
+      const pathA = a.path || a.id
+      const pathB = b.path || b.id
+      return pathA.localeCompare(pathB)
+    })
+    
+    // Xây dựng nested structure
+    for (const item of sortedItems) {
+      const pathParts = (item.path || item.id).split('.')
+      const arrayIndex = item.arrayIndex
+      const isArrayContainer = item.isArrayContainer
+      
+      if (pathParts.length === 1) {
+        // Root level
+        if (isArrayContainer) {
+          nestedObj[item.id] = []
+        } else {
+          nestedObj[item.id] = item.value
+        }
+      } else {
+        // Có parent - build path và set value
+        // Tìm parent trong path
+        const parentId = item.parentId
+        if (parentId) {
+          const parentItem = itemMap.get(parentId)
+          if (parentItem) {
+            // Build full path từ root
+            const fullPath: string[] = []
+            let current: Item | undefined = item
+            
+            // Build path ngược từ item lên root
+            const pathStack: Item[] = []
+            while (current) {
+              pathStack.unshift(current)
+              current = current.parentId ? itemMap.get(current.parentId) : undefined
+            }
+            
+            // Navigate và set value
+            let target = nestedObj
+            for (let i = 0; i < pathStack.length; i++) {
+              const pathItem = pathStack[i]
+              const isLast = i === pathStack.length - 1
+              
+              if (i === 0) {
+                // Root level
+                if (!target[pathItem.id]) {
+                  target[pathItem.id] = pathItem.isArrayContainer ? [] : {}
+                }
+                target = target[pathItem.id]
+              } else {
+                // Check xem pathItem có trong array không
+                const grandParent = pathStack[i - 1]
+                if (grandParent.isArrayContainer && pathItem.arrayIndex !== undefined) {
+                  // PathItem nằm trong array của grandParent
+                  if (!Array.isArray(target)) {
+                    target = nestedObj
+                    // Navigate lại từ đầu đến grandParent
+                    for (let j = 0; j < i - 1; j++) {
+                      const prevItem = pathStack[j]
+                      if (!target[prevItem.id]) {
+                        target[prevItem.id] = prevItem.isArrayContainer ? [] : {}
+                      }
+                      target = target[prevItem.id]
+                    }
+                    target[grandParent.id] = []
+                    target = target[grandParent.id]
+                  }
+                  // Đảm bảo array đủ lớn
+                  while (target.length <= pathItem.arrayIndex) {
+                    target.push({})
+                  }
+                  target = target[pathItem.arrayIndex]
+                  
+                  // Nếu là item cuối cùng, set value
+                  if (isLast) {
+                    if (isArrayContainer) {
+                      target[pathItem.id] = []
+                    } else {
+                      target[pathItem.id] = item.value
+                    }
+                  } else {
+                    // Chưa phải cuối, tiếp tục navigate
+                    if (!target[pathItem.id]) {
+                      target[pathItem.id] = pathItem.isArrayContainer ? [] : {}
+                    }
+                    target = target[pathItem.id]
+                  }
+                } else {
+                  // PathItem không trong array
+                  if (!target[pathItem.id]) {
+                    target[pathItem.id] = pathItem.isArrayContainer ? [] : {}
+                  }
+                  if (isLast) {
+                    if (isArrayContainer) {
+                      target[pathItem.id] = []
+                    } else {
+                      target[pathItem.id] = item.value
+                    }
+                  } else {
+                    target = target[pathItem.id]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    return nestedObj
   }, [items, selected])
 
   // Cập nhật jsonText khi selectedJson thay đổi
@@ -69,10 +269,22 @@ export default function App() {
   }, [items])
 
   const onLoad = async () => {
-    if (!url.trim()) return
+    const trimmedUrl = url.trim()
+    if (!trimmedUrl) {
+      alert('Vui lòng nhập URL trước khi load')
+      return
+    }
+    
+    // Clear state cũ khi load URL mới
+    setItems([])
+    setSelected({})
+    setValidateResult(null)
+    setJsonText('')
+    setJsonError(null)
+    
     setLoading(true)
     try {
-      console.log('Starting scan for:', url.trim())
+      console.log('Starting scan for:', trimmedUrl)
       if (!window.api) {
         throw new Error('API not available. Make sure preload script is loaded.')
       }
@@ -80,7 +292,7 @@ export default function App() {
       console.log('window.api exists?', !!window.api)
       console.log('window.api.scanPage exists?', typeof window.api?.scanPage)
 
-      const data = await window.api.scanPage(url.trim())
+      const data = await window.api.scanPage(trimmedUrl)
       console.log('Scan result received:', data)
       console.log('Data type:', Array.isArray(data) ? 'Array' : typeof data)
       console.log('Number of items:', data?.length || 0)
@@ -114,101 +326,215 @@ export default function App() {
     <div style={{ padding: 16 }}>
       <h2>UI i18n Tool</h2>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <input
-          style={{ flex: 1, padding: 8 }}
-          placeholder="Paste URL here..."
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-        />
-        <button onClick={onLoad} disabled={loading}>
-          {loading ? 'Loading...' : 'Load'}
-        </button>
-         {/* Validate & Test */}
-        <button
-          onClick={async () => {
-            if (!url.trim()) {
-              alert('Vui lòng nhập URL trước')
-              return
-            }
-            
-            // Parse JSON từ textarea để lấy giá trị thực tế mà user đã nhập
-            let jsonToValidate: Record<string, string>
-            try {
-              const parsed = JSON.parse(jsonText)
-              if (typeof parsed !== 'object' || Array.isArray(parsed)) {
-                alert('JSON phải là một object')
+      <div style={{ 
+        marginBottom: 16, 
+        padding: 12, 
+        backgroundColor: '#f8f9fa', 
+        borderRadius: 8,
+        border: '1px solid #dee2e6'
+      }}>
+       
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input
+            style={{ flex: 1, minWidth: 200, padding: 8 }}
+            placeholder="URL trang login (tùy chọn)..."
+            value={loginUrl}
+            onChange={(e) => setLoginUrl(e.target.value)}
+            onKeyDown={async (e) => {
+              if (e.key === 'Enter' && !loading && loginUrl.trim()) {
+                try {
+                  setLoading(true)
+                  await window.api.openTestWindow(loginUrl.trim())
+                  setTestWindowOpened(true)
+                } catch (err: any) {
+                  alert('Lỗi khi mở BrowserWindow: ' + (err?.message || String(err)))
+                } finally {
+                  setLoading(false)
+                }
+              }
+            }}
+          />
+          <button
+            onClick={async () => {
+              try {
+                setLoading(true)
+                await window.api.openTestWindow(loginUrl.trim() || undefined)
+                setTestWindowOpened(true)
+                alert(' BrowserWindow đã mở! Vui lòng login và điều hướng đến trang cần test, sau đó nhấn "Bắt đầu test UI"')
+              } catch (e: any) {
+                alert('Lỗi khi mở BrowserWindow: ' + (e?.message || String(e)))
+              } finally {
+                setLoading(false)
+              }
+            }}
+            disabled={loading}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: loading ? '#ccc' : '#17a2b8',
+              color: 'white',
+              border: 'none',
+              borderRadius: 4,
+              cursor: loading ? 'not-allowed' : 'pointer',
+              fontWeight: 'bold'
+            }}
+            title="Mở BrowserWindow để login thủ công"
+          >
+            {loading ? 'Đang mở...' : ' Mở tab test'}
+          </button>
+          <button
+            onClick={async () => {
+              try {
+                setLoading(true)
+                setValidateResult(null)
+                
+              
+                const scannedItems = await window.api.scanCurrentPage()
+                
+                if (scannedItems.length === 0) {
+                  alert('Không tìm thấy phần tử nào có id trên trang này. Vui lòng kiểm tra lại.')
+                  return
+                }
+                
+                // Update items và selected state
+                setItems(scannedItems)
+                setSelected({})
+                
+                // Tự động chọn tất cả items
+                const allSelected: Record<string, boolean> = {}
+                scannedItems.forEach(item => { allSelected[item.id] = true })
+                setSelected(allSelected)
+                
+                // Update JSON text
+                const jsonObj: Record<string, string> = {}
+                scannedItems.forEach(item => { jsonObj[item.id] = item.value })
+                setJsonText(JSON.stringify(jsonObj, null, 2))
+                setJsonError(null)
+                
+                alert(` Đã scan ${scannedItems.length} phần tử từ trang hiện tại!`)
+              } catch (e: any) {
+                const errorMessage = e?.message || String(e)
+                alert('Lỗi khi scan trang: ' + errorMessage)
+              } finally {
+                setLoading(false)
+              }
+            }}
+            disabled={loading}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: loading ? '#ccc' : '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: 4,
+              cursor: loading ? 'not-allowed' : 'pointer',
+              fontWeight: 'bold'
+            }}
+            title="Scan trang hiện tại để lấy danh sách các element có id"
+          >
+            {loading ? 'Đang scan...' : 'Scan trang hiện tại'}
+          </button>
+          <button
+            onClick={async () => {
+              // Bước 1: Click nút submit trên trang hiện tại trong BrowserWindow
+              try {
+                setLoading(true)
+                const clickResult = await window.api.clickSubmitInTestWindow()
+                if (clickResult.clicked) {
+                  // Đợi trang xử lý submit (redirect, validation, etc.)
+                  await new Promise(resolve => setTimeout(resolve, 1500))
+                } else if (clickResult.message) {
+                  console.log('', clickResult.message)
+                }
+              } catch (e: any) {
+                setLoading(false)
+                alert('Lỗi khi click submit: ' + (e?.message || String(e)))
                 return
               }
-              jsonToValidate = parsed
-            } catch (e) {
-              alert('JSON không hợp lệ: ' + (e instanceof Error ? e.message : String(e)))
-              return
-            }
-            
-            if (Object.keys(jsonToValidate).length === 0) {
-              alert('Vui lòng nhập ít nhất một phần tử trong JSON để test')
-              return
-            }
-            
-            try {
-              setLoading(true)
-              setValidateResult(null)
-              const result = await window.api.validatePage(url.trim(), jsonToValidate, browserOpened)
-              setValidateResult(result)
-              // Đánh dấu browser đã mở sau lần đầu tiên
-              if (!browserOpened) {
-                setBrowserOpened(true)
+
+              // Bước 2: Nếu có JSON thì validate
+              if (!jsonText.trim()) {
+                setLoading(false)
+                return
               }
-              // BrowserWindow sẽ tự động mở (lần đầu) hoặc reuse (các lần sau)
-              // Kết quả validate sẽ hiển thị trực tiếp trên trang web trong BrowserWindow
-              if (result.pass) {
-                // Có thể hiển thị thông báo thành công ngắn gọn
-                console.log('PASS - Tất cả các phần tử đều đúng!')
-              } else {
-                console.log(' FAIL - Có', result.errors.length, 'lỗi. Xem chi tiết trong browser và panel bên dưới.')
-              }
-            } catch (e: any) {
-              const errorMessage = e?.message || String(e)
-              setValidateResult({ pass: false, errors: [{ key: 'system', type: 'error', message: errorMessage }] })
               
-              // Hiển thị lỗi chung
-              alert('Lỗi khi test: ' + errorMessage)
-            } finally {
-              setLoading(false)
-            }
-          }}
-          disabled={loading || !url.trim() || !jsonText.trim()}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: loading || !url.trim() || !jsonText.trim() ? '#ccc' : '#28a745',
-            color: 'white',
-            border: 'none',
+              // Parse JSON
+              let jsonToValidate: Record<string, string>
+              try {
+                const parsed = JSON.parse(jsonText)
+                if (typeof parsed !== 'object' || Array.isArray(parsed)) {
+                  alert('JSON phải là một object')
+                  setLoading(false)
+                  return
+                }
+                jsonToValidate = parsed
+              } catch (e) {
+                alert('JSON không hợp lệ: ' + (e instanceof Error ? e.message : String(e)))
+                setLoading(false)
+                return
+              }
+              
+              if (Object.keys(jsonToValidate).length === 0) {
+                setLoading(false)
+                return
+              }
+              
+              try {
+                setValidateResult(null)
+                const result = await window.api.validateCurrentPage(jsonToValidate)
+                setValidateResult(result)
+                if (result.pass) {
+                  console.log('✅ PASS - Tất cả các phần tử đều đúng!')
+                } else {
+                  console.log('❌ FAIL - Có', result.errors.length, 'lỗi')
+                }
+              } catch (e: any) {
+                const errorMessage = e?.message || String(e)
+                setValidateResult({ pass: false, errors: [{ key: 'system', type: 'error', message: errorMessage }] })
+                alert('Lỗi khi test: ' + errorMessage)
+              } finally {
+                setLoading(false)
+              }
+            }}
+            disabled={loading}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: loading ? '#ccc' : '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: 4,
+              cursor: loading ? 'not-allowed' : 'pointer',
+              fontWeight: 'bold'
+            }}
+            title="Click nút submit trên trang hiện tại, sau đó validate (nếu có JSON)"
+          >
+            {loading ? 'Đang test...' : 'Test'}
+          </button>
+        </div>
+        {testWindowOpened && (
+          <div style={{
+            marginTop: 8,
+            padding: '8px 12px',
+            backgroundColor: '#d1ecf1',
+            color: '#0c5460',
             borderRadius: 4,
-            cursor: loading || !url.trim() || !jsonText.trim() ? 'not-allowed' : 'pointer'
-          }}
-          title="Chạy validate - BrowserWindow sẽ tự động mở/reuse để hiển thị kết quả"
-        >
-          {loading ? 'Testing...' : ' Validate & Test'}
-        </button>
-        <button
-          onClick={() => {
-            setValidateResult(null)
-            // Có thể thêm thông báo ngắn gọn
-          }}
-          disabled={!validateResult}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: !validateResult ? '#ccc' : '#6c757d',
-            color: 'white',
-            border: 'none',
-            borderRadius: 4,
-            cursor: !validateResult ? 'not-allowed' : 'pointer'
-          }}
-          title="Xóa kết quả test để chuẩn bị cho test case mới"
-        >
-           Clear Results
-        </button>
+            fontSize: '0.9em',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6
+          }}>
+            <span>✓</span>
+            <span>
+              BrowserWindow đã mở. Vui lòng login và điều hướng đến trang cần test, sau đó nhấn "Scan trang hiện tại" để lấy danh sách id.
+            </span>
+          </div>
+        )}
+        
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        
+         
+         
+         
         {browserOpened && (
           <div style={{
             padding: '6px 12px',
@@ -259,6 +585,8 @@ export default function App() {
             // Kiểm tra xem phần tử này có lỗi trong validate result không
             const error = validateResult?.errors?.find(err => err.key === it.id)
             const hasError = !!error
+            const level = it.level || 0
+            const indent = level * 24 // 24px per level
             
             return (
               <label
@@ -267,10 +595,12 @@ export default function App() {
                   display: 'flex',
                   gap: 8,
                   padding: 8,
+                  paddingLeft: 8 + indent,
                   borderBottom: '1px solid #eee',
                   cursor: 'pointer',
-                  backgroundColor: hasError ? '#ffe6e6' : 'transparent',
-                  borderLeft: hasError ? '3px solid #dc3545' : 'none'
+                  backgroundColor: hasError ? '#ffe6e6' : (level % 2 === 0 ? 'transparent' : '#f9f9f9'),
+                  borderLeft: hasError ? '3px solid #dc3545' : (level > 0 ? `2px solid #e0e0e0` : 'none'),
+                  position: 'relative'
                 }}
               >
                 <input
@@ -279,8 +609,48 @@ export default function App() {
                   onChange={(e) => setSelected((prev) => ({ ...prev, [it.id]: e.target.checked }))}
                 />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {it.id}
+                  <div style={{ fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ 
+                      fontFamily: 'monospace',
+                      fontSize: level > 0 ? '0.9em' : '1em',
+                      color: level > 0 ? '#555' : '#000'
+                    }}>
+                      {it.id}
+                    </span>
+                    {it.isArrayContainer && (
+                      <span style={{ 
+                        fontSize: '0.7em', 
+                        color: '#007bff', 
+                        fontWeight: 'normal',
+                        padding: '2px 6px',
+                        backgroundColor: '#e7f3ff',
+                        borderRadius: 3
+                      }}>
+                        [Array]
+                      </span>
+                    )}
+                    {it.arrayIndex !== undefined && (
+                      <span style={{ 
+                        fontSize: '0.7em', 
+                        color: '#28a745', 
+                        fontWeight: 'normal',
+                        padding: '2px 6px',
+                        backgroundColor: '#d4edda',
+                        borderRadius: 3
+                      }}>
+                        [{it.arrayIndex}]
+                      </span>
+                    )}
+                    {it.parentId && (
+                      <span style={{ 
+                        fontSize: '0.7em', 
+                        color: '#6c757d', 
+                        fontWeight: 'normal',
+                        fontStyle: 'italic'
+                      }}>
+                        ← {it.parentId}
+                      </span>
+                    )}
                     {hasError && (
                       <span style={{ 
                         fontSize: '0.75em', 
@@ -294,6 +664,11 @@ export default function App() {
                       </span>
                     )}
                   </div>
+                  {it.path && it.path !== it.id && (
+                    <div style={{ color: '#999', fontSize: '0.75em', marginBottom: 2, fontFamily: 'monospace' }}>
+                      Path: {it.path}
+                    </div>
+                  )}
                   <div style={{ color: '#666', fontSize: '0.9em', wordBreak: 'break-word' }}>
                     {it.value.length > 100 ? it.value.substring(0, 100) + '...' : it.value}
                   </div>
@@ -387,9 +762,7 @@ export default function App() {
             spellCheck={false}
           />
 
-          <div style={{ marginTop: 8, fontSize: '0.85em', color: '#666' }}>
-             Tip: Sửa JSON và nhấn "Áp dụng thay đổi" để cập nhật các checkbox bên trái
-          </div>
+          
 
           {/* Validate Result Panel */}
           {validateResult && (
